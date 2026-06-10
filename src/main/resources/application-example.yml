@@ -1,0 +1,68 @@
+# 线上配置文件
+# @author yzy
+spring:
+  # mysql
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://your-server-ip:3306/your-db
+    username: usr
+    password: yourpassword
+  # redis
+  data:
+    redis:
+      host: your-server-ip
+      port: 6379
+      database: 0
+      password: yourpassword
+      ttl: 3600
+      user: default
+# AI
+langchain4j:
+  open-ai:
+    streaming-chat-model:
+      base-url:
+      api-key:
+      log-requests: true
+      log-responses: true
+      model-name:
+      # 超时配置
+      timeout: 1800s # 给足时长，否则可能因过早终止而导致无法获取模型完成响应
+      max-tokens: 8192
+      max-retries: 3
+    chat-model:
+      base-url:
+      api-key:
+      log-requests: true
+      log-responses: true
+      model-name:
+      # 超时配置
+      timeout: 1800s
+      max-tokens: 8192
+      max-retries: 3
+# 阿里云 DashScope 配置
+dashscope:
+  api-key:
+  image-model:
+# aliyunOSS服务用户配置
+alioss:
+  client:
+    endpoint:
+    bucketName:
+    objPath:
+    region:
+# Pexels 图片搜索配置
+pexels:
+  api-key: "your-api-key"
+# 生产环境关闭日志
+mybatis-flex:
+  configuration:
+    log-impl: ''
+# 接口文档配置
+knife4j:
+  basic:
+    enable: true
+    username:
+    password:
+# 部署路径
+code:
+  deploy-host: http://your-server-ip/dist

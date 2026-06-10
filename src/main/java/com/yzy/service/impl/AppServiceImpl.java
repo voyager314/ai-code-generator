@@ -1,0 +1,388 @@
+package com.yzy.service.impl;
+
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
+import com.mybatisflex.core.paginate.Page;
+import com.mybatisflex.core.query.QueryWrapper;
+import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.yzy.ai.AiCodeGeneratorFacade;
+import com.yzy.ai.AiRoutingService;
+import com.yzy.ai.WorkFlow.WorkFlowApp;
+import com.yzy.ai.handler.StreamHandlerExecutor;
+import com.yzy.ai.model.CodeGenTypeEnum;
+import com.yzy.common.AppConstant;
+import com.yzy.dto.AppAddRequest;
+import com.yzy.dto.AppQueryRequest;
+import com.yzy.dto.AppStarQueryRequest;
+import com.yzy.dto.AppUpdateRequest;
+import com.yzy.entity.App;
+import com.yzy.entity.User;
+import com.yzy.enums.MessageTypeEnum;
+import com.yzy.exception.BusinessException;
+import com.yzy.exception.ErrorCode;
+import com.yzy.exception.ThrowUtil;
+import com.yzy.manager.AliOSSManager;
+import com.yzy.mapper.AppMapper;
+import com.yzy.monitor.MonitorContext;
+import com.yzy.monitor.MonitorContextHolder;
+import com.yzy.service.AppService;
+import com.yzy.service.ChatHistoryService;
+import com.yzy.util.WebScreenShotUtil;
+import com.yzy.vo.AppDetailVO;
+import com.yzy.vo.AppVO;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import reactor.core.publisher.Flux;
+
+import java.io.File;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+
+/**
+ * 应用 服务层实现。
+ *
+ * @author yzy
+ * @since 2026-03-12
+ */
+@Service
+@Slf4j
+public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
+    @Autowired
+    private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    @Autowired
+    private ChatHistoryService chatHistoryService;
+
+    @Autowired
+    private StreamHandlerExecutor streamHandlerExecutor;
+
+    @Autowired
+    private AliOSSManager aliOSSManager;
+
+    @Autowired
+    private AiRoutingService aiRoutingService;
+
+    @Value("${code.deploy-host}")
+    private static String DEPLOY_HOST;
+
+    @Override
+    public Long createApp(AppAddRequest request) {
+        // 获取当前用户ID
+        Long userId = getCurrentUserId();
+
+        // 创建应用实体
+        App app = App.builder()
+                .appName(request.getAppName())
+                .cover(request.getCover())
+                .initPrompt(request.getInitPrompt())
+                //替换为智能路由服务
+                .codeGenType(aiRoutingService.aiRoutingService(request.getInitPrompt()).getValue())
+                .userId(userId)
+                .priority(0)
+                .build();
+
+        // 保存应用
+        save(app);
+        return app.getId();
+    }
+
+    @Override
+    public Boolean updateApp(Long id, AppUpdateRequest request) {
+        // 获取当前用户ID
+        Long userId = getCurrentUserId();
+
+        // 查询应用
+        App app = getById(id);
+        if (app == null) {
+            throw new RuntimeException("应用不存在");
+        }
+
+        // 验证用户只能修改自己的应用
+        if (!app.getUserId().equals(userId)) {
+            throw new RuntimeException("无权限修改此应用");
+        }
+
+        // 更新应用信息
+        if (request.getAppName() != null) {
+            app.setAppName(request.getAppName());
+        }
+        if (request.getCover() != null) {
+            app.setCover(request.getCover());
+        }
+        if (request.getPriority() != null) {
+            app.setPriority(request.getPriority());
+        }
+
+        return updateById(app);
+    }
+
+    @Override
+    public Boolean deleteApp(Long id) {
+        // 获取当前用户ID
+        Long userId = getCurrentUserId();
+
+        // 查询应用
+        App app = getById(id);
+        if (app == null) {
+            throw new RuntimeException("应用不存在");
+        }
+
+        // 验证用户只能删除自己的应用
+        if (!app.getUserId().equals(userId)) {
+            throw new RuntimeException("无权限删除此应用");
+        }
+
+        // 删除应用的对话历史
+        Boolean b = chatHistoryService.deleteChatHistoryByAppId(id);
+        if(!b)log.error("对话历史删除失败！");
+
+        return removeById(id);
+    }
+
+    @Override
+    public AppDetailVO getAppDetail(Long id) {
+        App app = getById(id);
+        if (app == null) {
+            throw new RuntimeException("应用不存在");
+        }
+
+        // 转换为VO
+        AppDetailVO vo = new AppDetailVO();
+        BeanUtil.copyProperties(app, vo);
+        return vo;
+    }
+
+    @Override
+    public Page<AppVO> getMyAppList(AppQueryRequest request) {
+        Long userId = getCurrentUserId();
+
+        // 构建查询条件
+        QueryWrapper queryWrapper = new QueryWrapper()
+                .eq("userId", userId)
+                .eq("isDelete", 0);
+
+        if (request.getAppName() != null && !request.getAppName().isEmpty()) {
+            queryWrapper.like("appName", request.getAppName());
+        }
+
+        // 设置分页参数（用户分页每页最多20条）
+        int pageSize = Math.min(request.getPageSize(), 20);
+        int pageNum = request.getPageNum();
+
+        // 执行分页查询
+        Page<App> appPage = page(Page.of(pageNum, pageSize), queryWrapper);
+
+        // 转换为VO
+        Page<AppVO> voPage = new Page<>(pageNum, pageSize, appPage.getTotalRow());
+        List<AppVO> voList = getAppVOList(appPage.getRecords());
+        voPage.setRecords(voList);
+
+        return voPage;
+    }
+
+    @Override
+    public Page<AppVO> getStarAppList(AppStarQueryRequest request) {
+        // 构建查询条件
+        QueryWrapper queryWrapper = new QueryWrapper()
+                .eq("isDelete", 0);
+
+        if (request.getAppName() != null && !request.getAppName().isEmpty()) {
+            queryWrapper.like("appName", request.getAppName());
+        }
+
+        // 查询有优先级的应用（精选）
+        if (request.getPriority() != null) {
+            queryWrapper.ge("priority", request.getPriority());
+        } else {
+            queryWrapper.ge("priority", 0);
+        }
+
+        // 设置分页参数（精选应用每页最多20条）
+        int pageSize = Math.min(request.getPageSize(), 20);
+        int pageNum = request.getPageNum();
+
+        // 执行分页查询
+        Page<App> appPage = page(Page.of(pageNum, pageSize), queryWrapper);
+
+        // 转换为VO
+        Page<AppVO> voPage = new Page<>(pageNum, pageSize, appPage.getTotalRow());
+        List<AppVO> voList = getAppVOList(appPage.getRecords());
+        voPage.setRecords(voList);
+
+        return voPage;
+    }
+
+    @Override
+    public Boolean adminUpdateApp(Long id, AppUpdateRequest request) {
+        // 查询应用
+        App app = getById(id);
+        if (app == null) {
+            throw new RuntimeException("应用不存在");
+        }
+
+        // 更新应用信息
+        if (request.getAppName() != null) {
+            app.setAppName(request.getAppName());
+        }
+        if (request.getCover() != null) {
+            app.setCover(request.getCover());
+        }
+        if (request.getPriority() != null) {
+            app.setPriority(request.getPriority());
+        }
+
+        return updateById(app);
+    }
+
+    @Override
+    public Boolean adminDeleteApp(Long id) {
+        // 删除应用的对话历史
+        Boolean b = chatHistoryService.deleteChatHistoryByAppId(id);
+        if(!b)log.error("对话历史删除失败！");//容错，即使对话删除异常也不阻止app删除
+        return removeById(id);
+    }
+
+    @Override
+    public Page<AppVO> adminGetAppList(AppQueryRequest request) {
+        // 构建查询条件
+        QueryWrapper queryWrapper = new QueryWrapper()
+                .eq("isDelete", 0);
+
+        // 支持除时间外的任何字段查询
+        if (request.getId() != null) {
+            queryWrapper.eq("id", request.getId());
+        }
+        if (request.getAppName() != null && !request.getAppName().isEmpty()) {
+            queryWrapper.like("appName", request.getAppName());
+        }
+        if (request.getUserId() != null) {
+            queryWrapper.eq("userId", request.getUserId());
+        }
+        if (request.getPriority() != null) {
+            queryWrapper.eq("priority", request.getPriority());
+        }
+        if (request.getCodeGenType() != null && !request.getCodeGenType().isEmpty()) {
+            queryWrapper.eq("codeGenType", request.getCodeGenType());
+        }
+
+        // 设置分页参数（管理员分页数量不限）
+        int pageSize = request.getPageSize();
+        int pageNum = request.getPageNum();
+
+        // 执行分页查询
+        Page<App> appPage = page(Page.of(pageNum, pageSize), queryWrapper);
+
+        // 转换为VO
+        Page<AppVO> voPage = new Page<>(pageNum, pageSize, appPage.getTotalRow());
+        List<AppVO> voList = getAppVOList(appPage.getRecords());
+        voPage.setRecords(voList);
+
+        return voPage;
+    }
+
+    /**
+     * 获取当前登录用户ID
+     */
+    private Long getCurrentUserId() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        HttpServletRequest request = attributes.getRequest();
+
+        User user = (User) request.getSession().getAttribute("USER_LOGIN_STATE");
+        Long userId = user.getId();
+        if (userId == null) {
+            throw new RuntimeException("用户未登录");
+        }
+        return userId;
+    }
+
+    /**
+     * 将App列表转换为AppVO列表
+     */
+    private List<AppVO> getAppVOList(List<App> appList) {
+        if (appList == null || appList.isEmpty()) {
+            return List.of();
+        }
+
+        List<AppVO> voList = new ArrayList<>(appList.size());
+        for (App app : appList) {
+            AppVO vo = new AppVO();
+            BeanUtil.copyProperties(app, vo);
+            voList.add(vo);
+        }
+        return voList;
+    }
+
+    @Override
+    public Flux<String> chatToGenCode(Long appId, String msg, User user,boolean agent) {
+        App app = getById(appId);
+        ThrowUtil.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        if (!app.getUserId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+        //设置监控上下文
+        MonitorContextHolder.setContext(MonitorContext.builder()
+                        .appId(appId+"")
+                        .userId(user.getId()+"")
+                .build());
+        //保存用户对话历史
+        chatHistoryService.saveChatHistory(appId,user.getId(),msg, MessageTypeEnum.USER.getValue());
+        //生成并保存代码
+        Flux<String> origin=null;
+        if(!agent) origin = aiCodeGeneratorFacade.genAndSaveCode(msg, CodeGenTypeEnum.getEnumByValue(app.getCodeGenType()), app.getId());
+        else origin=new WorkFlowApp().executeWorkFlow(msg,appId);
+        //处理流
+        return streamHandlerExecutor
+                .handle(origin,appId,user,chatHistoryService,CodeGenTypeEnum.getEnumByValue(app.getCodeGenType()))
+                //无论失败，释放监控上下文
+                .doFinally(signalType -> MonitorContextHolder.removeContext());
+    }
+
+    @Override
+    public String deployApp(Long appId, User loginUser) {
+        App app = getById(appId);
+        ThrowUtil.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在！");
+        String codeGenType = app.getCodeGenType();
+        String deployKey = app.getDeployKey();
+        if(StrUtil.isBlank(deployKey)) {
+            //检查是否已有delpoyKey，没有则生成6位唯一key
+            deployKey= RandomUtil.randomString(6);
+        }
+        String outputPath;
+        if(!codeGenType.equals("vue_project")){
+            outputPath=AppConstant.OUTPUT_DIR + File.separator + String.format("%s_%s", codeGenType, appId);
+        }else {
+            outputPath=AppConstant.OUTPUT_DIR + File.separator + String.format("%s_%s", "vue_project", appId);
+        }
+        File outputFile = new File(outputPath);
+        if (!outputFile.exists() || !outputFile.isDirectory()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "应用未生成，请先生成代码！");
+        }
+        String deployPath=AppConstant.DEPLOY_DIR + File.separator + String.format("%s_%s", codeGenType, deployKey);
+        FileUtil.copyContent(outputFile, new File(deployPath), true);
+        App update = new App();
+        update.setId(appId);
+        update.setDeployedTime(LocalDateTime.now());
+        update.setDeployKey(deployKey);
+        String webUrl=String.format("%s/%s_%s/",DEPLOY_HOST,app.getCodeGenType(),deployKey);
+        new Thread(() -> {
+            //异步获取网页截图并上传至OSS
+            //这里为了保证兼容性，暂时不用java21的虚拟线程
+            String filePath = WebScreenShotUtil.getScreenShot(webUrl);
+            String coverUrl = aliOSSManager.upload(filePath);
+            update.setCover(coverUrl);
+            boolean b = updateById(update);
+            ThrowUtil.throwIf(!b, ErrorCode.OPERATION_ERROR, "应用部署失败！");
+        }).start();
+        //提供可访问的url
+        return webUrl;
+    }
+}
