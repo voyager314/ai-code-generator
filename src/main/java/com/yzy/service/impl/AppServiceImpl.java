@@ -72,7 +72,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     private AiRoutingService aiRoutingService;
 
     @Value("${code.deploy-host}")
-    private static String DEPLOY_HOST;
+    private String DEPLOY_HOST;
 
     @Override
     public Long createApp(AppAddRequest request) {
