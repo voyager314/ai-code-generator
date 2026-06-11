@@ -32,6 +32,8 @@ frontend/dist/
 frontend/.env.local
 codex-plan.md
 wise-code-plan.md
+claude-query.md
+
 
 ### NetBeans ###
 /nbproject/private/

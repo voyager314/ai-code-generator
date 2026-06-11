@@ -112,4 +112,19 @@ public interface AppService extends IService<App> {
      */
     String deployApp(Long appId,User loginUser);
 
+    /**
+     * 获取应用文件树
+     * @param appId 应用id
+     * @return 文件树根节点
+     */
+    com.yzy.dto.FileTreeNode getFileTree(Long appId);
+
+    /**
+     * 获取应用文件内容
+     * @param appId 应用id
+     * @param path 文件相对路径
+     * @return 文件内容
+     */
+    String getFileContent(Long appId, String path);
+
 }

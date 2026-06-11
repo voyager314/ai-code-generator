@@ -300,4 +300,27 @@ public class AppController {
 
         projectDownLoadService.downLoadAsZip(projectPath,String.valueOf(appId),response);
     }
+
+    /**
+     * 获取应用文件树
+     * @param appId 应用id
+     * @return 文件树
+     */
+    @GetMapping("/files/{appId}")
+    public BaseResponse<com.yzy.dto.FileTreeNode> getAppFileTree(@PathVariable Long appId) {
+        com.yzy.dto.FileTreeNode tree = appService.getFileTree(appId);
+        return ResultUtil.success(tree);
+    }
+
+    /**
+     * 获取应用文件内容
+     * @param appId 应用id
+     * @param path 文件相对路径
+     * @return 文件内容
+     */
+    @GetMapping("/file/{appId}")
+    public BaseResponse<String> getAppFileContent(@PathVariable Long appId, @RequestParam String path) {
+        String content = appService.getFileContent(appId, path);
+        return ResultUtil.success(content);
+    }
 }

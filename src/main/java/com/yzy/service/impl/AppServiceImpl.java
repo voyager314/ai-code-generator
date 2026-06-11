@@ -616,4 +616,72 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         }
         if (process.exitValue() != 0) throw new Exception("命令失败: " + output);
     }
+
+    @Override
+    public com.yzy.dto.FileTreeNode getFileTree(Long appId) {
+        App app = getById(appId);
+        ThrowUtil.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+
+        File projectDir = resolveProjectDir(appId, app.getCodeGenType());
+        ThrowUtil.throwIf(!projectDir.exists(), ErrorCode.NOT_FOUND_ERROR, "项目目录不存在");
+
+        return buildFileTree(projectDir, "");
+    }
+
+    @Override
+    public String getFileContent(Long appId, String path) {
+        ThrowUtil.throwIf(StrUtil.isBlank(path), ErrorCode.PARAMS_ERROR, "路径不能为空");
+        ThrowUtil.throwIf(path.contains("..") || path.startsWith("/") || path.startsWith("\\"),
+                ErrorCode.PARAMS_ERROR, "非法路径");
+
+        App app = getById(appId);
+        ThrowUtil.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+
+        File projectDir = resolveProjectDir(appId, app.getCodeGenType());
+        File file = new File(projectDir, path);
+
+        try {
+            String canonicalPath = file.getCanonicalPath();
+            if (!canonicalPath.startsWith(projectDir.getCanonicalPath())) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "非法路径访问");
+            }
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "路径解析失败");
+        }
+
+        ThrowUtil.throwIf(!file.exists() || !file.isFile(), ErrorCode.NOT_FOUND_ERROR, "文件不存在");
+
+        return FileUtil.readUtf8String(file);
+    }
+
+    private File resolveProjectDir(Long appId, String codeGenType) {
+        File agentDir = new File(AppConstant.OUTPUT_DIR + File.separator + "agent_" + appId);
+        if (agentDir.exists()) {
+            return agentDir;
+        }
+        return new File(AppConstant.OUTPUT_DIR + File.separator + codeGenType + "_" + appId);
+    }
+
+    private com.yzy.dto.FileTreeNode buildFileTree(File file, String basePath) {
+        com.yzy.dto.FileTreeNode node = new com.yzy.dto.FileTreeNode();
+        node.setName(file.getName().isEmpty() ? "root" : file.getName());
+
+        if (file.isDirectory()) {
+            node.setType("directory");
+            List<com.yzy.dto.FileTreeNode> children = new ArrayList<>();
+            File[] files = file.listFiles();
+            if (files != null) {
+                for (File child : files) {
+                    String childPath = basePath.isEmpty() ? child.getName() : basePath + "/" + child.getName();
+                    children.add(buildFileTree(child, childPath));
+                }
+            }
+            node.setChildren(children);
+        } else {
+            node.setType("file");
+            node.setPath(basePath.isEmpty() ? file.getName() : basePath);
+        }
+
+        return node;
+    }
 }
