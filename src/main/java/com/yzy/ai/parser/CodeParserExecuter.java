@@ -13,7 +13,7 @@ public class CodeParserExecuter {
 
     public static Object executeCodeParse(String codeContent, CodeGenTypeEnum typeEnum){
         return switch (typeEnum){
-            case HTML -> htmlParser.parse(codeContent);
+            case HTML, DEFAULT -> htmlParser.parse(codeContent);
             case MULTI_FILE -> multiFileParser.parse(codeContent);
             default -> throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"不支持的类型");
         };

@@ -519,7 +519,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         }
 
         // Node项目需构建后部署dist产物，否则直接部署源码
-        File deploySource = isNodeProject(outputDir) ? buildAndGetDist(outputDir) : outputDir;
+        boolean nodeProject = isNodeProject(outputDir);
+        File deploySource = nodeProject ? buildAndGetDist(outputDir) : outputDir;
+        codeGenType=nodeProject?"default":codeGenType;
         String deployPath = AppConstant.DEPLOY_DIR + File.separator + codeGenType + "_" + deployKey;
         FileUtil.copyContent(deploySource, new File(deployPath), true);
 

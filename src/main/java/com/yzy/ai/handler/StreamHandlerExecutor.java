@@ -33,6 +33,7 @@ public class StreamHandlerExecutor {
         return switch (typeEnum){
             case VUE_PROJECT -> jsonStreamHandler.handle(origin,appId,loginUser,service);
             case HTML,MULTI_FILE -> simpleTextStreamHandler.handle(origin,appId,loginUser,service);
+            case DEFAULT -> simpleTextStreamHandler.handle(origin,appId,loginUser,service);
             default -> Flux.empty();
         };
     }

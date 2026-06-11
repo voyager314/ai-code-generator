@@ -52,6 +52,10 @@ public class AiCodeGeneratorFacade {
                             .genVueProjectTokenStream(appId, userMsg);
                     yield processTokenStream(tokenStream);
                 }
+                case DEFAULT -> {
+                    log.info("Routing to DEFAULT stream method");
+                    yield genAndSaveHtmlCodeStream(userMsg,appId);
+                }
                 default -> throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"不支持的生成类型！");
             };
         } catch (Exception e) {

@@ -17,7 +17,7 @@ public class CodeFileSaverExecuter {
 
     public static File executeCodeSave(CodeGenTypeEnum typeEnum,Object result,Long appId){
         return switch (typeEnum){
-            case HTML -> htmlCodeSaver.saveCode((HtmlCodeResult) result,appId);
+            case HTML, DEFAULT -> htmlCodeSaver.saveCode((HtmlCodeResult) result,appId);
             case MULTI_FILE -> multiFileCodeSaver.saveCode((MultiFileCodeResult) result,appId);
             default -> throw new BusinessException(ErrorCode.OPERATION_ERROR);
         };

@@ -288,7 +288,16 @@ public class AppController {
         if(!user.getId().equals(app.getUserId())){
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"无应用下载权限！");
         }
-        String projectPath= AppConstant.OUTPUT_DIR+ File.separator+app.getCodeGenType()+"_"+appId;
+
+        // 优先检查agent目录，否则使用传统路径
+        String projectPath;
+        File agentDir = new File(AppConstant.OUTPUT_DIR + File.separator + "agent_" + appId);
+        if (agentDir.exists()) {
+            projectPath = agentDir.getAbsolutePath();
+        } else {
+            projectPath = AppConstant.OUTPUT_DIR + File.separator + app.getCodeGenType() + "_" + appId;
+        }
+
         projectDownLoadService.downLoadAsZip(projectPath,String.valueOf(appId),response);
     }
 }
