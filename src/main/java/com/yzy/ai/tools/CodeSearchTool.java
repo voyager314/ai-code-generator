@@ -30,18 +30,19 @@ public class CodeSearchTool extends BaseTool {
     @Autowired
     private WorkspaceResolver workspaceResolver;
 
-    private static final int MAX_RESULTS = 30;
-    private static final int MAX_PER_FILE = 5;
+    private static final int MAX_RESULTS = 50;
+    private static final int MAX_PER_FILE = 8;
 
     private static final Set<String> IGNORE_DIRS = Set.of(
-            "node_modules", ".git", "dist", "build", "target",
-            ".idea", ".vscode", "coverage", "__pycache__", ".mvn");
+            "node_modules", ".git", "dist", "build",
+            ".idea", ".vscode", "coverage",
+            ".next", ".nuxt", ".output", ".turbo", ".parcel-cache", "storybook-static", ".cache");
 
     private static final Set<String> IGNORE_EXTENSIONS = Set.of(
-            ".class", ".jar", ".war", ".exe", ".dll", ".so",
             ".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg",
             ".woff", ".woff2", ".ttf", ".eot", ".map",
-            ".lock", ".log");
+            ".lock", ".log",
+            ".min.js", ".min.css", ".chunk.js", ".chunk.css");
 
     @Tool("在项目目录中搜索文件内容")
     public String searchCode(

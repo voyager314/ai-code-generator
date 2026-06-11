@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -18,26 +20,30 @@ public class FileDeleteTool extends BaseTool {
     @Autowired
     private WorkspaceResolver workspaceResolver;
 
-    private static final String[] ban={"package.json","package-lock.json",
-            "yarn.lock","pnpm-lock.yaml",
-            "vite.config.js","vite.config.ts",
-    "vue.config.js","vue.config.ts","tsconfig.json","tsconfig.app.json","tsconfig.node.json",
-    "index.html","main.ts","main.js","App.vue",".gitignore","README.md"};
+    private static final Set<String> BANNED_EXACT = Set.of(
+            "package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+            "tsconfig.json", "tsconfig.app.json", "tsconfig.node.json",
+            "index.html", "main.ts", "main.js", "App.vue",
+            ".gitignore", "README.md", "env.d.ts", "components.json",
+            "bun.lockb", "deno.lock", "deno.json");
+
+    private static final List<String> BANNED_PREFIXES = List.of(
+            "vite.config", "vue.config", "next.config", "nuxt.config",
+            "svelte.config", "postcss.config", "tailwind.config", "astro.config",
+            ".eslintrc", ".prettierrc");
 
     @Tool("删除指定路径的文件")
-    public String deleteFile(@P("文件相对路径") String relativePath,@ToolMemoryId long appId){
+    public String deleteFile(@P("文件相对路径") String relativePath, @ToolMemoryId long appId) {
         Path path = workspaceResolver.resolve(appId, relativePath);
-        if(!Files.exists(path)||!Files.isRegularFile(path)){
+        if (!Files.exists(path) || !Files.isRegularFile(path)) {
             log.error("文件不存在或非文件: {}", relativePath);
             throw new ToolExecutionException("文件不存在或非文件: " + relativePath);
         }
-        //安全检查
         String fileName = path.getFileName().toString();
-        for(String b:ban){
-            if(fileName.equalsIgnoreCase(b)){
-                log.warn("禁止删除关键文件: {}", fileName);
-                throw new ToolExecutionException("禁止删除关键文件: " + fileName);
-            }
+        if (BANNED_EXACT.contains(fileName.toLowerCase())
+                || BANNED_PREFIXES.stream().anyMatch(p -> fileName.toLowerCase().startsWith(p))) {
+            log.warn("禁止删除关键文件: {}", fileName);
+            throw new ToolExecutionException("禁止删除关键文件: " + fileName);
         }
         try {
             FileUtil.del(path);

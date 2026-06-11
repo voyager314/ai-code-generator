@@ -42,13 +42,16 @@ public class CommandExecuteTool extends BaseTool {
     @Autowired
     private ApprovalService approvalService;
 
-    private static final long TIMEOUT_SECONDS = 60;
-    private static final int MAX_OUTPUT_LENGTH = 3000;
+    private static final long TIMEOUT_SECONDS = 120;
+    private static final int MAX_OUTPUT_LENGTH = 5000;
 
     private static final Set<String> ALLOWED_COMMANDS = Set.of(
             "npm", "node", "npx", "pnpm", "yarn",
-            "python", "python3", "pip", "pip3",
-            "mvn", "gradle", "java", "javac",
+            "vite", "vitest", "jest", "webpack", "esbuild",
+            "turbo", "nx", "bun", "deno",
+            "playwright", "cypress", "vue-tsc",
+            "next", "nuxi", "astro",
+            "tailwindcss", "prisma", "drizzle-kit",
             "eslint", "prettier", "tsc",
             "ls", "dir", "cat", "type", "echo", "pwd",
             "mkdir", "touch", "cp", "mv",

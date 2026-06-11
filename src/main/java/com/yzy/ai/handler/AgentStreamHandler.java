@@ -30,14 +30,19 @@ import java.util.Set;
 @Component
 public class AgentStreamHandler {
 
-    private static final Map<String, String> TOOL_NAME_MAP = Map.of(
-            "writeFile", "写入文件",
-            "readFile", "读取文件",
-            "modifyFile", "修改文件",
-            "deleteFile", "删除文件",
-            "readDir", "浏览目录",
-            "searchCode", "搜索代码",
-            "executeCommand", "执行命令"
+    private static final Map<String, String> TOOL_NAME_MAP = Map.ofEntries(
+            Map.entry("writeFile", "写入文件"),
+            Map.entry("readFile", "读取文件"),
+            Map.entry("modifyFile", "修改文件"),
+            Map.entry("modifyFileByLine", "按行修改文件"),
+            Map.entry("modifyFileByRegex", "正则修改文件"),
+            Map.entry("deleteFile", "删除文件"),
+            Map.entry("readDir", "浏览目录"),
+            Map.entry("searchCode", "搜索代码"),
+            Map.entry("executeCommand", "执行命令"),
+            Map.entry("packageInfo", "查看包信息"),
+            Map.entry("installPackage", "安装依赖"),
+            Map.entry("runScript", "运行脚本")
     );
 
     public Flux<String> handle(Flux<String> origin, Long appId, User loginUser, ChatHistoryService service) {
@@ -101,11 +106,16 @@ public class AgentStreamHandler {
         try {
             var json = JSONUtil.parseObj(argsJson);
             return switch (toolName) {
-                case "writeFile", "readFile", "modifyFile", "deleteFile" ->
+                case "writeFile", "readFile", "modifyFile", "modifyFileByRegex", "deleteFile" ->
                         json.getStr("relativeFilePath", json.getStr("relativePath", ""));
+                case "modifyFileByLine" ->
+                        json.getStr("relativePath", "") + " L" + json.getStr("startLine", "") + "-" + json.getStr("endLine", "");
                 case "readDir" -> json.getStr("relativePath", ".");
                 case "searchCode" -> json.getStr("pattern", "");
                 case "executeCommand" -> json.getStr("command", "");
+                case "packageInfo" -> json.getStr("action", "all");
+                case "installPackage" -> json.getStr("packages", "");
+                case "runScript" -> json.getStr("scriptName", "");
                 default -> argsJson.length() > 80 ? argsJson.substring(0, 80) + "..." : argsJson;
             };
         } catch (Exception e) {

@@ -23,13 +23,13 @@ public class FileDirReadTool extends BaseTool {
     /*
     需要忽略的文件和目录
      */
-    private static final Set<String> IGNORE = Set.of(".idea",".vscode","node_modules",".git",".env","dist",
-            ".DS_Store","target",".mvn","coverage");
+    private static final Set<String> IGNORE = Set.of(
+            ".idea", ".vscode", "node_modules", ".git", ".env", "dist", ".DS_Store", "coverage",
+            ".next", ".nuxt", ".svelte-kit", ".turbo", ".parcel-cache", ".astro",
+            "out", ".output", "storybook-static", ".cache", ".temp", "__snapshots__");
 
-    /*
-    需要忽略的扩展名
-     */
-    private static final Set<String> EXTENSIONS=Set.of(".log",".temp",".cache",".lock");
+    private static final Set<String> EXTENSIONS = Set.of(
+            ".log", ".temp", ".cache", ".lock", ".min.js", ".min.css");
 
     /**
      * 读取指定路径的文件
