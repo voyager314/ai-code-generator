@@ -33,7 +33,7 @@ frontend/.env.local
 codex-plan.md
 wise-code-plan.md
 claude-query.md
-
+API_FILE_VIEWER.md
 
 ### NetBeans ###
 /nbproject/private/

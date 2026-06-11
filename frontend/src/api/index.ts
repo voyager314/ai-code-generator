@@ -13,6 +13,7 @@ import type {
   ChatHistoryQueryRequest,
   ChatHistoryVO,
   AgentApprovalRequest,
+  FileTreeNode,
 } from '@/types';
 
 export const userApi = {
@@ -53,6 +54,12 @@ export const appApi = {
 
   download: (appId: number) =>
     window.open(`/api/app/downLoad?appId=${appId}`),
+
+  getFileTree: (appId: number) =>
+    request.get<any, BaseResponse<FileTreeNode>>(`/app/files/${appId}`),
+
+  getFileContent: (appId: number, path: string) =>
+    request.get<any, BaseResponse<string>>(`/app/file/${appId}`, { params: { path } }),
 };
 
 export const chatApi = {

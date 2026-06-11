@@ -1,14 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tree, NodeRendererProps } from 'react-arborist';
 import { Highlight, themes } from 'prism-react-renderer';
-
-interface FileNode {
-  id: string;
-  name: string;
-  type: 'file' | 'directory';
-  path?: string;
-  children?: FileNode[];
-}
+import { appApi } from '@/api';
+import type { FileTreeNode } from '@/types';
 
 interface Tab {
   id: string;
@@ -21,7 +15,7 @@ interface CodeViewerProps {
   appId: number;
 }
 
-function FileTreeNode({ node, style, dragHandle }: NodeRendererProps<FileNode>) {
+function FileTreeNode({ node, style, dragHandle }: NodeRendererProps<FileTreeNode>) {
   const isFolder = node.data.type === 'directory';
   const icon = isFolder ? (node.isOpen ? '📂' : '📁') : '📄';
 
@@ -46,23 +40,28 @@ function FileTreeNode({ node, style, dragHandle }: NodeRendererProps<FileNode>) 
 export default function CodeViewer({ appId }: CodeViewerProps) {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [treeData, setTreeData] = useState<FileTreeNode[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - 等待后端接口
-  const mockTree: FileNode[] = [
-    {
-      id: '1',
-      name: 'src',
-      type: 'directory',
-      children: [
-        { id: '1-1', name: 'App.jsx', type: 'file', path: 'src/App.jsx' },
-        { id: '1-2', name: 'index.css', type: 'file', path: 'src/index.css' },
-      ],
-    },
-    { id: '2', name: 'index.html', type: 'file', path: 'index.html' },
-    { id: '3', name: 'package.json', type: 'file', path: 'package.json' },
-  ];
+  useEffect(() => {
+    loadFileTree();
+  }, [appId]);
 
-  const handleFileClick = async (node: FileNode) => {
+  const loadFileTree = async () => {
+    try {
+      const res = await appApi.getFileTree(appId);
+      if (res.data?.children) {
+        setTreeData(res.data.children);
+      }
+    } catch (err: any) {
+      console.error('加载文件树失败:', err);
+      alert(err.message || '加载文件树失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileClick = async (node: FileTreeNode) => {
     if (node.type === 'file' && node.path) {
       const existing = tabs.find((t) => t.path === node.path);
       if (existing) {
@@ -70,18 +69,21 @@ export default function CodeViewer({ appId }: CodeViewerProps) {
         return;
       }
 
-      // TODO: 调用后端接口获取文件内容
-      const mockContent = `// ${node.path}\n// 等待后端接口实现\n// GET /api/app/file/${appId}?path=${node.path}`;
+      try {
+        const res = await appApi.getFileContent(appId, node.path);
+        const newTab: Tab = {
+          id: `${appId}-${node.path}`,
+          name: node.name,
+          path: node.path,
+          content: res.data || '',
+        };
 
-      const newTab: Tab = {
-        id: node.id,
-        name: node.name,
-        path: node.path,
-        content: mockContent,
-      };
-
-      setTabs([...tabs, newTab]);
-      setActiveTabId(newTab.id);
+        setTabs([...tabs, newTab]);
+        setActiveTabId(newTab.id);
+      } catch (err: any) {
+        console.error('加载文件内容失败:', err);
+        alert(err.message || '加载文件失败');
+      }
     }
   };
 
@@ -100,6 +102,7 @@ export default function CodeViewer({ appId }: CodeViewerProps) {
     if (filename.endsWith('.css')) return 'css';
     if (filename.endsWith('.html')) return 'html';
     if (filename.endsWith('.json')) return 'json';
+    if (filename.endsWith('.vue')) return 'jsx';
     return 'text';
   };
 
@@ -108,17 +111,23 @@ export default function CodeViewer({ appId }: CodeViewerProps) {
       <div className="w-56 border-r bg-gray-50 flex flex-col">
         <div className="px-3 py-2 text-xs font-semibold text-gray-700 border-b">文件</div>
         <div className="flex-1 overflow-hidden">
-          <Tree
-            data={mockTree}
-            openByDefault={false}
-            width="100%"
-            height="100%"
-            indent={16}
-            rowHeight={28}
-            onSelect={(nodes) => nodes[0] && handleFileClick(nodes[0].data)}
-          >
-            {FileTreeNode}
-          </Tree>
+          {loading ? (
+            <div className="p-4 text-sm text-gray-500">加载中...</div>
+          ) : treeData.length === 0 ? (
+            <div className="p-4 text-sm text-gray-500">暂无文件</div>
+          ) : (
+            <Tree
+              data={treeData}
+              openByDefault={false}
+              width="100%"
+              height="100%"
+              indent={16}
+              rowHeight={28}
+              onSelect={(nodes) => nodes[0] && handleFileClick(nodes[0].data)}
+            >
+              {FileTreeNode}
+            </Tree>
+          )}
         </div>
       </div>
 
@@ -179,7 +188,6 @@ export default function CodeViewer({ appId }: CodeViewerProps) {
           <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
             <div className="text-center">
               <p>请选择文件查看</p>
-              <p className="text-xs mt-2">需要后端提供文件树和文件内容接口</p>
             </div>
           </div>
         )}
