@@ -1,13 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { appApi } from '@/api';
+import type { AppVO } from '@/types';
 
 export default function Home() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [apps, setApps] = useState<AppVO[]>([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    loadApps();
+  }, []);
+
+  const loadApps = async () => {
+    try {
+      const res = await appApi.getMyList({ pageNum: 1, pageSize: 8 });
+      setApps(res.data.records);
+    } catch (err) {
+      console.error('加载应用列表失败:', err);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -96,10 +111,23 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl font-bold mb-6">我的作品</h2>
           <div className="grid grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg shadow p-4 aspect-[4/3]">
-              <div className="w-full h-32 bg-gray-200 rounded mb-2" />
-              <div className="text-sm text-gray-600">卡路里计算器</div>
-            </div>
+            {apps.length === 0 ? (
+              <div className="col-span-4 text-center text-gray-500 py-8">暂无应用</div>
+            ) : (
+              apps.map((app) => (
+                <div
+                  key={app.id}
+                  onClick={() => navigate(`/app/${app.id}`)}
+                  className="bg-white rounded-lg shadow p-4 aspect-[4/3] cursor-pointer hover:shadow-lg transition-shadow"
+                >
+                  <div className="w-full h-32 bg-gray-200 rounded mb-2 flex items-center justify-center text-gray-400">
+                    {app.codeGenType || 'APP'}
+                  </div>
+                  <div className="text-sm font-medium truncate">{app.appName || `应用 ${app.id}`}</div>
+                  <div className="text-xs text-gray-500 mt-1">{app.createTime?.split('T')[0]}</div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
