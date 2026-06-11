@@ -1,17 +1,16 @@
 package com.yzy.ai.tools;
 
-import com.yzy.common.AppConstant;
 import com.yzy.exception.ToolExecutionException;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
 /**
@@ -21,6 +20,9 @@ import java.nio.file.StandardOpenOption;
 @Slf4j
 @Component
 public class FileWriteTool extends BaseTool{
+    @Autowired
+    private WorkspaceResolver workspaceResolver;
+
     @Tool("写入文件到指定路径")
     public String writeFile(
             @P("文件相对路径")
@@ -29,11 +31,7 @@ public class FileWriteTool extends BaseTool{
             String content,
             @ToolMemoryId Long appId
     ){
-        Path path = Paths.get(relativeFilePath);
-        if(!path.isAbsolute()){
-            Path projectRoot = Paths.get(AppConstant.OUTPUT_DIR, "vue_project_" + appId);
-            path=projectRoot.resolve(relativeFilePath);
-        }
+        Path path = workspaceResolver.resolve(appId, relativeFilePath);
         Path parent = path.getParent();
         //创建父目录（如果不存在）
         if(parent != null){

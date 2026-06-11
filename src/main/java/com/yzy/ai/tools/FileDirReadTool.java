@@ -1,24 +1,25 @@
 package com.yzy.ai.tools;
 
 import cn.hutool.core.io.FileUtil;
-import com.yzy.common.AppConstant;
 import com.yzy.exception.ToolExecutionException;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
 
 @Slf4j
 @Component
 public class FileDirReadTool extends BaseTool {
+    @Autowired
+    private WorkspaceResolver workspaceResolver;
     /*
     需要忽略的文件和目录
      */
@@ -38,11 +39,7 @@ public class FileDirReadTool extends BaseTool {
      */
     @Tool("读取指定路径的目录")
     public String readDir(@P("文件相对路径") String relativePath,@ToolMemoryId long appId){
-        Path path = Paths.get(relativePath);
-        if(!path.isAbsolute()){
-            Path rootPath = Paths.get(AppConstant.OUTPUT_DIR, "vue_project_" + appId);
-            path = rootPath.resolve(relativePath);
-        }
+        Path path = workspaceResolver.resolve(appId, relativePath);
         if(!Files.exists(path)){
             log.error("目录不存在: {}", relativePath);
             throw new ToolExecutionException("目录不存在: " + relativePath);
