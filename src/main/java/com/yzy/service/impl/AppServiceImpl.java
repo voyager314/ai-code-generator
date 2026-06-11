@@ -9,9 +9,12 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.yzy.ai.AiCodeGeneratorFacade;
 import com.yzy.ai.AiRoutingService;
-import com.yzy.ai.WorkFlow.WorkFlowApp;
+import com.yzy.ai.CodingAgentService;
+import com.yzy.ai.CodingAgentServiceFactory;
+import com.yzy.ai.approval.ApprovalService;
 import com.yzy.ai.handler.StreamHandlerExecutor;
 import com.yzy.ai.model.CodeGenTypeEnum;
+import com.yzy.ai.tools.WorkspaceResolver;
 import com.yzy.common.AppConstant;
 import com.yzy.dto.AppAddRequest;
 import com.yzy.dto.AppQueryRequest;
@@ -70,6 +73,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Autowired
     private AiRoutingService aiRoutingService;
+
+    @Autowired
+    private CodingAgentServiceFactory codingAgentServiceFactory;
+
+    @Autowired
+    private WorkspaceResolver workspaceResolver;
+
+    @Autowired
+    private ApprovalService approvalService;
 
     @Value("${code.deploy-host}")
     private String DEPLOY_HOST;
@@ -335,15 +347,58 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 .build());
         //保存用户对话历史
         chatHistoryService.saveChatHistory(appId,user.getId(),msg, MessageTypeEnum.USER.getValue());
-        //生成并保存代码
-        Flux<String> origin=null;
-        if(!agent) origin = aiCodeGeneratorFacade.genAndSaveCode(msg, CodeGenTypeEnum.getEnumByValue(app.getCodeGenType()), app.getId());
-        else origin=new WorkFlowApp().executeWorkFlow(msg,appId);
-        //处理流
+
+        if (agent) {
+            return startAgentMode(appId, msg, user);
+        }
+
+        //非agent模式：走原有代码生成路径
+        Flux<String> origin = aiCodeGeneratorFacade.genAndSaveCode(msg, CodeGenTypeEnum.getEnumByValue(app.getCodeGenType()), app.getId());
         return streamHandlerExecutor
                 .handle(origin,appId,user,chatHistoryService,CodeGenTypeEnum.getEnumByValue(app.getCodeGenType()))
-                //无论失败，释放监控上下文
                 .doFinally(signalType -> MonitorContextHolder.removeContext());
+    }
+
+    private Flux<String> startAgentMode(Long appId, String msg, User user) {
+        String workspacePath = AppConstant.OUTPUT_DIR + File.separator + "agent_" + appId;
+        new File(workspacePath).mkdirs();
+        workspaceResolver.registerWorkspace(appId, workspacePath);
+
+        CodingAgentService agentService = codingAgentServiceFactory.getService(appId);
+        Flux<String> origin = processAgentTokenStream(appId, agentService, msg);
+
+        return streamHandlerExecutor
+                .handleAgent(origin, appId, user, chatHistoryService)
+                .doFinally(signalType -> {
+                    approvalService.removeSink(appId);
+                    MonitorContextHolder.removeContext();
+                });
+    }
+
+    private Flux<String> processAgentTokenStream(Long appId, CodingAgentService agentService, String msg) {
+        return Flux.create(sink -> {
+            approvalService.registerSink(appId, sink);
+
+            agentService.chat(appId, msg)
+                    .onPartialResponse(partialResponse -> {
+                        com.yzy.ai.model.AiResponseMessage aiMsg = new com.yzy.ai.model.AiResponseMessage(partialResponse);
+                        sink.next(cn.hutool.json.JSONUtil.toJsonStr(aiMsg));
+                    })
+                    .beforeToolExecution(beforeToolExecution -> {
+                        com.yzy.ai.model.ToolRequestMessage toolMsg = new com.yzy.ai.model.ToolRequestMessage(beforeToolExecution.request());
+                        sink.next(cn.hutool.json.JSONUtil.toJsonStr(toolMsg));
+                    })
+                    .onToolExecuted(toolExecution -> {
+                        com.yzy.ai.model.ToolExecutedMessage toolMsg = new com.yzy.ai.model.ToolExecutedMessage(toolExecution);
+                        sink.next(cn.hutool.json.JSONUtil.toJsonStr(toolMsg));
+                    })
+                    .onCompleteResponse(response -> sink.complete())
+                    .onError(error -> {
+                        log.error("Agent TokenStream error", error);
+                        sink.error(error);
+                    })
+                    .start();
+        });
     }
 
     @Override
