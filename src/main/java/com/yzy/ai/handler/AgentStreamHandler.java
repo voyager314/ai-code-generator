@@ -86,6 +86,11 @@ public class AgentStreamHandler {
                 aiText.append(display);
                 yield JSONUtil.toJsonStr(AgentEvent.toolExecuted(friendlyName, argsSummary, result));
             }
+            case REFLECTION_STARTED, REFLECTION_RESULT, REFLECTION_RETRY -> {
+                // reflection 事件由 processAgentWithReflection 直接以 AgentEvent JSON 注入 Flux，
+                // handler 识别后直接透传，不追加到 aiText，避免聊天记录膨胀
+                yield chunk;
+            }
         };
     }
 
