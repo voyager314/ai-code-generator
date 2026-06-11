@@ -81,4 +81,24 @@ public class AgentEvent {
                 .content(message)
                 .build();
     }
+
+    public static AgentEvent reflectionStarted() {
+        return AgentEvent.builder()
+                .type(AgentEventTypeEnum.REFLECTION_STARTED.getValue())
+                .build();
+    }
+
+    public static AgentEvent reflectionResult(boolean isValid, String content) {
+        return AgentEvent.builder()
+                .type(AgentEventTypeEnum.REFLECTION_RESULT.getValue())
+                .content(content)
+                .build();
+    }
+
+    public static AgentEvent reflectionRetry(int round, int maxRetries) {
+        return AgentEvent.builder()
+                .type(AgentEventTypeEnum.REFLECTION_RETRY.getValue())
+                .content("第 " + round + "/" + maxRetries + " 轮修复")
+                .build();
+    }
 }

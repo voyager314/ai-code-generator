@@ -18,6 +18,9 @@ public enum AgentEventTypeEnum {
     TOOL_EXECUTED("tool_executed", "工具执行结果"),
     APPROVAL_REQUEST("approval_request", "审批请求"),
     APPROVAL_RESULT("approval_result", "审批结果"),
+    REFLECTION_STARTED("reflection_started", "反思检查开始"),
+    REFLECTION_RESULT("reflection_result", "反思检查结果"),
+    REFLECTION_RETRY("reflection_retry", "反思修复重试"),
     AGENT_COMPLETE("agent_complete", "Agent完成"),
     AGENT_ERROR("agent_error", "Agent错误");
 
