@@ -17,6 +17,9 @@ public class StreamHandlerExecutor {
     @Autowired
     private JsonStreamHandler jsonStreamHandler;
 
+    @Autowired
+    private AgentStreamHandler agentStreamHandler;
+
     public Flux<String> handle(Flux<String>origin,
                                Long appId, User loginUser,
                                ChatHistoryService service, CodeGenTypeEnum typeEnum){
@@ -25,5 +28,11 @@ public class StreamHandlerExecutor {
             case HTML,MULTI_FILE -> simpleTextStreamHandler.handle(origin,appId,loginUser,service);
             default -> Flux.empty();
         };
+    }
+
+    public Flux<String> handleAgent(Flux<String> origin,
+                                    Long appId, User loginUser,
+                                    ChatHistoryService service) {
+        return agentStreamHandler.handle(origin, appId, loginUser, service);
     }
 }
