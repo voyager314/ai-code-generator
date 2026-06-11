@@ -34,7 +34,7 @@ public class RunScriptTool extends BaseTool {
     @Autowired
     private ApprovalService approvalService;
 
-    private static final long TIMEOUT_SECONDS = 120;
+    private static final long TIMEOUT_SECONDS = 1200;
     private static final int MAX_OUTPUT_LENGTH = 5000;
     private static final Pattern SHELL_META = Pattern.compile("[;|&$`><]");
 
