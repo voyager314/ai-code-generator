@@ -359,6 +359,13 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 .doFinally(signalType -> MonitorContextHolder.removeContext());
     }
 
+    /**
+     * 启动 Agent 模式：
+     * 1. 创建隔离的工作空间目录 agent_xxx
+     * 2. 获取缓存的 CodingAgentService 实例
+     * 3. 将 TokenStream 转为 Flux 并注册 sink 到 ApprovalService（启用 HITL）
+     * 4. 通过 AgentStreamHandler 将事件转为前端可渲染的 AgentEvent JSON
+     */
     private Flux<String> startAgentMode(Long appId, String msg, User user) {
         String workspacePath = AppConstant.OUTPUT_DIR + File.separator + "agent_" + appId;
         new File(workspacePath).mkdirs();
@@ -375,6 +382,11 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 });
     }
 
+    /**
+     * 将 CodingAgentService 的 TokenStream 转为 Flux&lt;String&gt;。
+     * 注册 FluxSink 到 ApprovalService，使 CommandExecuteTool 能从工具线程向此 Flux 注入审批事件。
+     * 事件格式与 AiCodeGeneratorFacade.processTokenStream() 一致（AiResponseMessage / ToolRequestMessage / ToolExecutedMessage）。
+     */
     private Flux<String> processAgentTokenStream(Long appId, CodingAgentService agentService, String msg) {
         return Flux.create(sink -> {
             approvalService.registerSink(appId, sink);

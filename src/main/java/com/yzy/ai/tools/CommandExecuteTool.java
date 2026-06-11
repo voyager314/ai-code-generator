@@ -20,6 +20,19 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 命令执行工具
+ * <p>
+ * 在工作空间目录下执行 shell 命令，用于构建、测试、安装依赖等。
+ * 安全机制：
+ * - ALLOWED_COMMANDS 白名单：只允许已知安全的命令前缀
+ * - BLOCKED_PATTERNS 黑名单：拦截 rm -rf、sudo 等危险模式
+ * - 60 秒超时自动终止
+ * - 输出截断到 3000 字符
+ * <p>
+ * HITL 集成：Agent 模式下执行前通过 ApprovalService 推送审批事件到 SSE 流，
+ * 阻塞等待用户确认；非 Agent 模式（sink 未注册）自动放行。
+ */
 @Slf4j
 @Component
 public class CommandExecuteTool extends BaseTool {
@@ -97,6 +110,11 @@ public class CommandExecuteTool extends BaseTool {
         }
     }
 
+    /**
+     * 通过 ApprovalService 请求用户审批。
+     * 向 SSE 流推送 APPROVAL_REQUEST 事件，阻塞等待用户通过 REST 回调响应。
+     * 无 sink（非 Agent 模式）时直接放行。
+     */
     private boolean requestApproval(long appId, String command) {
         FluxSink<String> sink = approvalService.getSink(appId);
         if (sink == null) {
@@ -115,6 +133,10 @@ public class CommandExecuteTool extends BaseTool {
         return approved;
     }
 
+    /**
+     * 校验命令安全性：先检查黑名单模式，再检查命令前缀是否在白名单中。
+     * 自动剥离路径前缀和 .exe/.cmd/.bat 后缀以适配 Windows。
+     */
     private void validateCommand(String command) {
         String trimmed = command.strip().toLowerCase();
 
@@ -139,6 +161,10 @@ public class CommandExecuteTool extends BaseTool {
         }
     }
 
+    /**
+     * 构建跨平台进程：Windows 使用 cmd /c，Unix 使用 sh -c。
+     * stderr 合并到 stdout，工作目录设为工作空间根。
+     */
     private ProcessBuilder buildProcess(String command, Path workDir) {
         String os = System.getProperty("os.name").toLowerCase();
         ProcessBuilder pb;

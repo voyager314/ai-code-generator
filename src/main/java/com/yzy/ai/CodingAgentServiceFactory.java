@@ -18,6 +18,16 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 
+/**
+ * CodingAgentService 工厂
+ * <p>
+ * 为每个 appId 创建并缓存独立的 Agent 实例（Caffeine 本地缓存，30 分钟过期）。
+ * 每个实例绑定：
+ * - reasoningStreamingChatModel（支持 tool calling 的流式模型）
+ * - Redis-backed ChatMemory（30 条消息窗口，会话隔离）
+ * - 全部工具（通过 ToolManager 自动注入）
+ * - 输入护栏和幻觉工具名处理
+ */
 @Slf4j
 @Component
 public class CodingAgentServiceFactory {
@@ -45,6 +55,9 @@ public class CodingAgentServiceFactory {
                     log.warn("CodingAgentService 实例被移除 appId:{}, cause:{}", k, cause))
             .build();
 
+    /**
+     * 获取或创建 Agent 服务实例（缓存命中则复用）
+     */
     public CodingAgentService getService(Long appId) {
         return cache.get(appId, this::createService);
     }

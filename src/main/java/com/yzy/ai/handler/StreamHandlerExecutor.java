@@ -8,6 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+/**
+ * 流式处理路由器
+ * <p>
+ * 根据模式将原始 Flux 流路由到不同的 Handler：
+ * - handle()：非 Agent 模式，按 CodeGenTypeEnum 分发到 JsonStreamHandler 或 SimpleTextStreamHandler
+ * - handleAgent()：Agent 模式，统一路由到 AgentStreamHandler
+ */
 @Slf4j
 @Component
 public class StreamHandlerExecutor {

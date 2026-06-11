@@ -13,6 +13,19 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Agent 模式流式事件处理器
+ * <p>
+ * 将 TokenStream 产出的原始 JSON chunks（AiResponseMessage / ToolRequestMessage / ToolExecutedMessage）
+ * 转换为前端可渲染的 AgentEvent JSON。
+ * <p>
+ * 核心功能：
+ * - 工具名中文翻译（TOOL_NAME_MAP）：writeFile → "写入文件"，面向非程序员用户
+ * - 参数摘要提取（summarizeArgs）：从工具参数 JSON 中提取关键字段（如文件路径、命令内容）
+ * - 结果截断（truncateResult）：防止长输出消耗过多 token
+ * - AI 文本聚合：收集完整的 AI 回复用于对话历史持久化
+ * - 工具去重：同一工具调用只推送一次 TOOL_REQUEST 事件（通过 seenToolIds 跟踪）
+ */
 @Slf4j
 @Component
 public class AgentStreamHandler {
@@ -76,6 +89,9 @@ public class AgentStreamHandler {
         };
     }
 
+    /**
+     * 从工具参数 JSON 中提取关键信息作为摘要，用于前端展示
+     */
     private String summarizeArgs(String toolName, String argsJson) {
         try {
             var json = JSONUtil.parseObj(argsJson);

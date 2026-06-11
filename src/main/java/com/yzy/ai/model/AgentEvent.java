@@ -5,6 +5,19 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Agent 模式统一事件包装
+ * <p>
+ * 所有推送给前端的 Agent 事件都序列化为此对象的 JSON。
+ * 通过静态工厂方法构造各类事件，保证 type 字段与 AgentEventTypeEnum 一致。
+ * <p>
+ * 字段说明：
+ * - type: 事件类型（必填）
+ * - toolName: 工具名称（仅工具相关事件）
+ * - toolArgs: 工具参数摘要（仅工具相关事件）
+ * - content: 事件内容（AI回复文本 / 工具执行结果 / 审批描述 / 错误信息）
+ * - approvalId: 审批标识（仅 HITL 事件，前端用此 ID 调用 /app/agent/approve 回传结果）
+ */
 @Data
 @Builder
 @NoArgsConstructor

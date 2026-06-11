@@ -16,6 +16,14 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 代码搜索工具
+ * <p>
+ * 递归遍历工作空间内的文件，按关键词搜索匹配行，
+ * 返回 "文件路径:行号: 内容" 格式的结果。
+ * 自动跳过 node_modules、.git 等目录和二进制文件。
+ * 限制：全局最多 MAX_RESULTS 条，单文件最多 MAX_PER_FILE 条，防止输出过长消耗 token。
+ */
 @Slf4j
 @Component
 public class CodeSearchTool extends BaseTool {
@@ -63,6 +71,9 @@ public class CodeSearchTool extends BaseTool {
         return result.toString();
     }
 
+    /**
+     * 递归搜索目录，跳过 IGNORE_DIRS 中的目录
+     */
     private void searchDir(File dir, Path root, String pattern,
                            String fileExtension, StringBuilder result, int[] totalCount) {
         if (totalCount[0] >= MAX_RESULTS) return;
@@ -88,6 +99,9 @@ public class CodeSearchTool extends BaseTool {
         }
     }
 
+    /**
+     * 逐行搜索单个文件，遇到 IOException（如二进制文件）静默跳过
+     */
     private void searchFile(File file, Path root, String pattern,
                             StringBuilder result, int[] totalCount) {
         try {

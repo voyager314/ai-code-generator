@@ -2,6 +2,14 @@ package com.yzy.ai.model;
 
 import lombok.Getter;
 
+/**
+ * Agent 模式 SSE 事件类型枚举
+ * <p>
+ * 前端根据 type 字段区分事件并做对应的 UI 渲染：
+ * - ai_response / tool_request / tool_executed：常规 Agent 交互流
+ * - approval_request / approval_result：HITL 审批流程
+ * - agent_complete / agent_error：终态信号
+ */
 @Getter
 public enum AgentEventTypeEnum {
 
