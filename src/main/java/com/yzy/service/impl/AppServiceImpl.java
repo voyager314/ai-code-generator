@@ -4,6 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -13,7 +14,10 @@ import com.yzy.ai.CodingAgentService;
 import com.yzy.ai.CodingAgentServiceFactory;
 import com.yzy.ai.approval.ApprovalService;
 import com.yzy.ai.handler.StreamHandlerExecutor;
+import com.yzy.ai.model.AiResponseMessage;
 import com.yzy.ai.model.CodeGenTypeEnum;
+import com.yzy.ai.model.ToolExecutedMessage;
+import com.yzy.ai.model.ToolRequestMessage;
 import com.yzy.ai.tools.WorkspaceResolver;
 import com.yzy.common.AppConstant;
 import com.yzy.dto.AppAddRequest;
@@ -393,16 +397,16 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
             agentService.chat(appId, msg)
                     .onPartialResponse(partialResponse -> {
-                        com.yzy.ai.model.AiResponseMessage aiMsg = new com.yzy.ai.model.AiResponseMessage(partialResponse);
-                        sink.next(cn.hutool.json.JSONUtil.toJsonStr(aiMsg));
+                        AiResponseMessage aiMsg = new AiResponseMessage(partialResponse);
+                        sink.next(JSONUtil.toJsonStr(aiMsg));
                     })
                     .beforeToolExecution(beforeToolExecution -> {
-                        com.yzy.ai.model.ToolRequestMessage toolMsg = new com.yzy.ai.model.ToolRequestMessage(beforeToolExecution.request());
-                        sink.next(cn.hutool.json.JSONUtil.toJsonStr(toolMsg));
+                        ToolRequestMessage toolMsg = new ToolRequestMessage(beforeToolExecution.request());
+                        sink.next(JSONUtil.toJsonStr(toolMsg));
                     })
                     .onToolExecuted(toolExecution -> {
-                        com.yzy.ai.model.ToolExecutedMessage toolMsg = new com.yzy.ai.model.ToolExecutedMessage(toolExecution);
-                        sink.next(cn.hutool.json.JSONUtil.toJsonStr(toolMsg));
+                        ToolExecutedMessage toolMsg = new ToolExecutedMessage(toolExecution);
+                        sink.next(JSONUtil.toJsonStr(toolMsg));
                     })
                     .onCompleteResponse(response -> sink.complete())
                     .onError(error -> {

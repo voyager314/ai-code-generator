@@ -28,7 +28,7 @@ public class ApprovalService {
     /** appId → SSE 事件流的 Sink，用于从工具线程向前端注入审批事件 */
     private final Map<Long, FluxSink<String>> appSinks = new ConcurrentHashMap<>();
 
-    private static final long DEFAULT_TIMEOUT_SECONDS = 120;
+    private static final long DEFAULT_TIMEOUT_SECONDS = 300;
 
     public void registerSink(Long appId, FluxSink<String> sink) {
         appSinks.put(appId, sink);
