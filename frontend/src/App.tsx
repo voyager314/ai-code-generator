@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useUserStore } from '@/store/user';
 import Login from '@/pages/Login';
+import Home from '@/pages/Home';
 import AppList from '@/pages/AppList';
 import AppChat from '@/pages/AppChat';
 import Admin from '@/pages/Admin';
@@ -20,10 +21,10 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/apps" element={<ProtectedRoute><AppList /></ProtectedRoute>} />
         <Route path="/app/:id" element={<ProtectedRoute><AppChat /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminRoute><Admin /></AdminRoute></ProtectedRoute>} />
-        <Route path="/" element={<Navigate to="/apps" />} />
       </Routes>
     </BrowserRouter>
   );
