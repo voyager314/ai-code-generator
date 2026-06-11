@@ -63,6 +63,12 @@ knife4j:
     enable: true
     username:
     password:
+# Agent Reflection 配置
+agent:
+  reflection:
+    enabled: true
+    max-retries: 2
+    max-snapshot-chars: 60000
 # 部署路径
 code:
   deploy-host: http://your-server-ip/dist

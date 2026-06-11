@@ -12,12 +12,12 @@ import com.yzy.ai.AiCodeGeneratorFacade;
 import com.yzy.ai.AiRoutingService;
 import com.yzy.ai.CodingAgentService;
 import com.yzy.ai.CodingAgentServiceFactory;
+import com.yzy.ai.WorkFlow.model.QualityResult;
 import com.yzy.ai.approval.ApprovalService;
 import com.yzy.ai.handler.StreamHandlerExecutor;
-import com.yzy.ai.model.AiResponseMessage;
-import com.yzy.ai.model.CodeGenTypeEnum;
-import com.yzy.ai.model.ToolExecutedMessage;
-import com.yzy.ai.model.ToolRequestMessage;
+import com.yzy.ai.model.*;
+import com.yzy.ai.reflection.AgentReflectionProperties;
+import com.yzy.ai.reflection.AgentReflectionService;
 import com.yzy.ai.tools.WorkspaceResolver;
 import com.yzy.common.AppConstant;
 import com.yzy.dto.AppAddRequest;
@@ -47,11 +47,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.File;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 
 /**
@@ -86,6 +89,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Autowired
     private ApprovalService approvalService;
+
+    @Autowired
+    private AgentReflectionService agentReflectionService;
+
+    @Autowired
+    private AgentReflectionProperties reflectionProperties;
 
     @Value("${code.deploy-host}")
     private String DEPLOY_HOST;
@@ -376,7 +385,13 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         workspaceResolver.registerWorkspace(appId, workspacePath);
 
         CodingAgentService agentService = codingAgentServiceFactory.getService(appId);
-        Flux<String> origin = processAgentTokenStream(appId, agentService, msg);
+
+        Flux<String> origin;
+        if (reflectionProperties.isEnabled()) {
+            origin = processAgentWithReflection(appId, agentService, msg);
+        } else {
+            origin = processAgentTokenStream(appId, agentService, msg);
+        }
 
         return streamHandlerExecutor
                 .handleAgent(origin, appId, user, chatHistoryService)
@@ -387,9 +402,74 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     }
 
     /**
-     * 将 CodingAgentService 的 TokenStream 转为 Flux&lt;String&gt;。
-     * 注册 FluxSink 到 ApprovalService，使 CommandExecuteTool 能从工具线程向此 Flux 注入审批事件。
-     * 事件格式与 AiCodeGeneratorFacade.processTokenStream() 一致（AiResponseMessage / ToolRequestMessage / ToolExecutedMessage）。
+     * 带 reflection 循环的 Agent 执行。
+     * 使用单个 Flux.create 管理整个生命周期，避免 concat 多 sink 的复杂度。
+     */
+    private Flux<String> processAgentWithReflection(Long appId, CodingAgentService agentService, String msg) {
+        int maxRetries = reflectionProperties.getMaxRetries();
+
+        return Flux.create(sink -> {
+            approvalService.registerSink(appId, sink);
+
+            Schedulers.boundedElastic().schedule(() -> {
+                try {
+                    runAgentRound(agentService, appId, msg, sink);
+
+                    for (int round = 1; round <= maxRetries; round++) {
+                        sink.next(JSONUtil.toJsonStr(AgentEvent.reflectionStarted()));
+
+                        QualityResult result = agentReflectionService.reflect(appId);
+
+                        if (result.getIsValid()) {
+                            sink.next(JSONUtil.toJsonStr(AgentEvent.reflectionResult(true, "代码质量检查通过")));
+                            break;
+                        }
+
+                        String errors = String.join("\n", result.getErrors());
+                        String suggestions = String.join("\n", result.getSuggestions());
+                        sink.next(JSONUtil.toJsonStr(AgentEvent.reflectionResult(false,
+                                "问题：\n" + errors + "\n建议：\n" + suggestions)));
+
+                        if (round < maxRetries) {
+                            sink.next(JSONUtil.toJsonStr(AgentEvent.reflectionRetry(round, maxRetries)));
+                            String fixPrompt = agentReflectionService.buildFixPrompt(result, msg);
+                            runAgentRound(agentService, appId, fixPrompt, sink);
+                        }
+                    }
+
+                    sink.complete();
+                } catch (Exception e) {
+                    log.error("Agent reflection loop error, appId={}", appId, e);
+                    sink.error(e);
+                }
+            });
+        });
+    }
+
+    /**
+     * 执行一轮 Agent TokenStream 并阻塞等待完成。
+     * 通过 CompletableFuture 将异步 TokenStream 转为同步等待。
+     */
+    private void runAgentRound(CodingAgentService agentService, Long appId,
+                               String prompt, FluxSink<String> sink) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
+        agentService.chat(appId, prompt)
+                .onPartialResponse(partial ->
+                        sink.next(JSONUtil.toJsonStr(new AiResponseMessage(partial))))
+                .beforeToolExecution(before ->
+                        sink.next(JSONUtil.toJsonStr(new ToolRequestMessage(before.request()))))
+                .onToolExecuted(toolExec ->
+                        sink.next(JSONUtil.toJsonStr(new ToolExecutedMessage(toolExec))))
+                .onCompleteResponse(response -> future.complete(null))
+                .onError(error -> future.completeExceptionally(error))
+                .start();
+
+        future.join();
+    }
+
+    /**
+     * 不带 reflection 的原始 Agent 流处理（reflection 关闭时使用）。
      */
     private Flux<String> processAgentTokenStream(Long appId, CodingAgentService agentService, String msg) {
         return Flux.create(sink -> {
