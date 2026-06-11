@@ -1,5 +1,8 @@
 package com.yzy.ai.tools;
 
+import cn.hutool.json.JSONUtil;
+import com.yzy.ai.approval.ApprovalService;
+import com.yzy.ai.model.AgentEvent;
 import com.yzy.exception.ToolExecutionException;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
@@ -7,12 +10,14 @@ import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.FluxSink;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -20,6 +25,9 @@ import java.util.concurrent.TimeUnit;
 public class CommandExecuteTool extends BaseTool {
     @Autowired
     private WorkspaceResolver workspaceResolver;
+
+    @Autowired
+    private ApprovalService approvalService;
 
     private static final long TIMEOUT_SECONDS = 60;
     private static final int MAX_OUTPUT_LENGTH = 3000;
@@ -50,6 +58,10 @@ public class CommandExecuteTool extends BaseTool {
         }
 
         validateCommand(command);
+
+        if (!requestApproval(appId, command)) {
+            return "[用户拒绝执行该命令]";
+        }
 
         try {
             ProcessBuilder pb = buildProcess(command, root);
@@ -85,6 +97,24 @@ public class CommandExecuteTool extends BaseTool {
         }
     }
 
+    private boolean requestApproval(long appId, String command) {
+        FluxSink<String> sink = approvalService.getSink(appId);
+        if (sink == null) {
+            return true;
+        }
+
+        String approvalId = UUID.randomUUID().toString();
+        AgentEvent event = AgentEvent.approvalRequest(approvalId, "即将执行命令: " + command);
+        sink.next(JSONUtil.toJsonStr(event));
+
+        boolean approved = approvalService.requestAndWait(approvalId);
+
+        AgentEvent resultEvent = AgentEvent.approvalResult(approvalId, approved);
+        sink.next(JSONUtil.toJsonStr(resultEvent));
+
+        return approved;
+    }
+
     private void validateCommand(String command) {
         String trimmed = command.strip().toLowerCase();
 
@@ -95,14 +125,12 @@ public class CommandExecuteTool extends BaseTool {
         }
 
         String firstToken = trimmed.split("\\s+")[0];
-        // strip path prefixes like ./node_modules/.bin/eslint -> eslint
         if (firstToken.contains("/")) {
             firstToken = firstToken.substring(firstToken.lastIndexOf('/') + 1);
         }
         if (firstToken.contains("\\")) {
             firstToken = firstToken.substring(firstToken.lastIndexOf('\\') + 1);
         }
-        // strip .exe/.cmd/.bat suffix on Windows
         firstToken = firstToken.replaceAll("\\.(exe|cmd|bat)$", "");
 
         if (!ALLOWED_COMMANDS.contains(firstToken)) {

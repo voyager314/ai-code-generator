@@ -3,6 +3,7 @@ package com.yzy.controller;
 import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.yzy.ai.AiCodeGeneratorFacade;
+import com.yzy.ai.approval.ApprovalService;
 import com.yzy.annotation.Auth;
 import com.yzy.annotation.RateLimit;
 import com.yzy.common.AppConstant;
@@ -50,6 +51,9 @@ public class AppController {
 
     @Autowired
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    @Autowired
+    private ApprovalService approvalService;
 
     @Autowired
     private ChatHistoryService chatHistoryService;
@@ -235,6 +239,17 @@ public class AppController {
                 })
                 //在后方追加结束事件，便于前端判断是否异常终止
                 .concatWith(Mono.just(ServerSentEvent.<String>builder().event("done").data("").build()));
+    }
+
+    /**
+     * Agent 审批回调
+     * @param request 审批请求
+     * @return 是否成功
+     */
+    @PostMapping("/agent/approve")
+    public BaseResponse<Boolean> approveAgentAction(@RequestBody AgentApprovalRequest request) {
+        boolean result = approvalService.submitApproval(request.getApprovalId(), request.isApproved());
+        return ResultUtil.success(result);
     }
 
     /**
