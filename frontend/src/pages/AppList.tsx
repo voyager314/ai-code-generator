@@ -57,7 +57,12 @@ export default function AppList() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold">Wise Code</h1>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-violet-600 rounded-md flex items-center justify-center">
+            <span className="text-white text-[11px] font-black leading-none">Z</span>
+          </div>
+          <span className="text-xl font-bold tracking-tight">Zeno</span>
+        </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600">{userAccount}</span>
           {isAdmin && (

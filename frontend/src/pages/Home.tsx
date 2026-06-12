@@ -51,8 +51,10 @@ export default function Home() {
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #e0f7fa 0%, #b3e5fc 50%, #81d4fa 100%)' }}>
       <header className="px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-teal-600 rounded-lg" />
-          <span className="text-xl font-bold">NoCode</span>
+          <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center">
+            <span className="text-white text-xs font-black">Z</span>
+          </div>
+          <span className="text-xl font-bold tracking-tight">Zeno</span>
         </div>
         <nav className="flex gap-6 text-sm">
           <a href="#" className="hover:underline">使用文档</a>
