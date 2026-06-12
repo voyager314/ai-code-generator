@@ -158,7 +158,7 @@ export default function Admin() {
           <Button size="sm" onClick={() => setShowAdd(true)}>
             新增用户
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/apps')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
             返回
           </Button>
         </div>

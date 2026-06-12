@@ -4,7 +4,6 @@ import { userApi } from '@/api';
 import { useUserStore } from '@/store/user';
 import Login from '@/pages/Login';
 import Home from '@/pages/Home';
-import AppList from '@/pages/AppList';
 import AppChat from '@/pages/AppChat';
 import Admin from '@/pages/Admin';
 
@@ -53,7 +52,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const isAdmin = useUserStore((s) => s.isAdmin());
-  return isAdmin ? <>{children}</> : <Navigate to="/apps" />;
+  return isAdmin ? <>{children}</> : <Navigate to="/" />;
 }
 
 export default function App() {
@@ -62,7 +61,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-        <Route path="/apps" element={<ProtectedRoute><AppList /></ProtectedRoute>} />
+        <Route path="/apps" element={<Navigate to="/" replace />} />
         <Route path="/app/:id" element={<ProtectedRoute><AppChat /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminRoute><Admin /></AdminRoute></ProtectedRoute>} />
       </Routes>

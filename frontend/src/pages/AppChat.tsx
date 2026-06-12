@@ -484,7 +484,7 @@ export default function AppChat() {
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate('/apps')}
+              onClick={() => navigate('/')}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
               aria-label="返回作品列表"
             >
