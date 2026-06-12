@@ -7,7 +7,7 @@ import { useUserStore } from '@/store/user';
 /*  Shared input style                                                 */
 /* ------------------------------------------------------------------ */
 const inputClass =
-  'block w-full h-12 rounded-lg border border-[#e5e5e5] bg-[#f9f9f8] px-4 text-[15px] text-[#171717] placeholder:text-[#aaa] transition-colors duration-200 hover:border-[#ccc] focus:border-[#171717] focus:ring-2 focus:ring-[#171717]/10 focus:outline-none focus:bg-white disabled:opacity-40 disabled:cursor-not-allowed';
+  'block w-full h-12 rounded-lg border border-[#e5e5e5] bg-[#f9f9f8] px-4 text-[15px] text-[#171717] placeholder:text-[#aaa] cursor-text transition-colors duration-200 hover:border-[#ccc] focus:border-[#171717] focus:ring-2 focus:ring-[#171717]/25 focus:outline-none focus:bg-white disabled:opacity-40 disabled:cursor-not-allowed';
 
 /* ------------------------------------------------------------------ */
 /*  Eye icon — shown / hidden                                          */
@@ -114,12 +114,12 @@ export default function Login() {
   /*  Render                       */
   /* ============================ */
   return (
-    <main className="flex h-dvh bg-white">
+    <main className="flex min-h-screen h-dvh bg-white">
       {/* ────────────────────── Left: typographic hero ────────────────────── */}
-      <div className="hidden lg:flex relative h-full w-1/2 bg-[#0f1117] flex-col justify-center px-16 overflow-hidden">
+      <div className="hidden lg:flex relative z-0 h-full w-1/2 bg-[#0f1117] flex-col justify-center px-16 overflow-hidden">
         {/* subtle grain / texture overlay — purely atmospheric */}
         <div
-          className="absolute inset-0 opacity-[0.03]"
+          className="pointer-events-none absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage:
               'radial-gradient(circle at 30% 40%, #c4a35a 1px, transparent 1px)',
@@ -146,7 +146,7 @@ export default function Login() {
       </div>
 
       {/* ────────────────────── Right: form ────────────────────── */}
-      <div className="flex h-full w-full lg:w-1/2 items-center justify-center px-6">
+      <div className="relative z-10 flex h-full w-full lg:w-1/2 items-center justify-center px-6">
         <div className="w-full max-w-[400px]">
           {/* Mobile-only brand */}
           <div className="lg:hidden mb-10">
@@ -204,6 +204,7 @@ export default function Login() {
                     setForm({ ...form, userAccount: e.target.value })
                   }
                   required
+                  autoFocus
                   autoComplete="username"
                   disabled={loading}
                   className={inputClass}

@@ -64,6 +64,7 @@ export default function App() {
         <Route path="/apps" element={<Navigate to="/" replace />} />
         <Route path="/app/:id" element={<ProtectedRoute><AppChat /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminRoute><Admin /></AdminRoute></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
