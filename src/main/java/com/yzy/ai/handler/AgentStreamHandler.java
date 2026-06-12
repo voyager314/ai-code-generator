@@ -91,9 +91,9 @@ public class AgentStreamHandler {
                 aiText.append(display);
                 yield JSONUtil.toJsonStr(AgentEvent.toolExecuted(friendlyName, argsSummary, result));
             }
-            case REFLECTION_STARTED, REFLECTION_RESULT, REFLECTION_RETRY -> {
-                // reflection 事件由 processAgentWithReflection 直接以 AgentEvent JSON 注入 Flux，
-                // handler 识别后直接透传，不追加到 aiText，避免聊天记录膨胀
+            case REFLECTION_STARTED, REFLECTION_RESULT, REFLECTION_RETRY,
+                 APPROVAL_REQUEST, APPROVAL_RESULT, AGENT_COMPLETE, AGENT_ERROR -> {
+                // 直接注入 Flux 的 AgentEvent JSON（审批、反思、终态事件），透传给前端
                 yield chunk;
             }
         };

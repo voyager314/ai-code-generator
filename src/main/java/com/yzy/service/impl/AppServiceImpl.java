@@ -21,10 +21,7 @@ import com.yzy.ai.reflection.AgentReflectionService;
 import com.yzy.ai.tools.PackageManagerDetector;
 import com.yzy.ai.tools.WorkspaceResolver;
 import com.yzy.common.AppConstant;
-import com.yzy.dto.AppAddRequest;
-import com.yzy.dto.AppQueryRequest;
-import com.yzy.dto.AppStarQueryRequest;
-import com.yzy.dto.AppUpdateRequest;
+import com.yzy.dto.*;
 import com.yzy.entity.App;
 import com.yzy.entity.User;
 import com.yzy.enums.MessageTypeEnum;
@@ -116,8 +113,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 .appName(request.getAppName())
                 .cover(request.getCover())
                 .initPrompt(request.getInitPrompt())
-                //替换为智能路由服务
-                .codeGenType(aiRoutingService.aiRoutingService(request.getInitPrompt()).getValue())
+                //智能路由服务
+                //.codeGenType(aiRoutingService.aiRoutingService(request.getInitPrompt()).getValue())
                 .userId(userId)
                 .priority(0)
                 .build();
@@ -472,7 +469,21 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 .onError(error -> future.completeExceptionally(error))
                 .start();
 
-        future.join();
+        try {
+            future.join();
+        } catch (Exception e) {
+            Throwable root=e;
+            while (root.getCause() != null) {root=root.getCause();}
+            if (root instanceof com.fasterxml.jackson.core.JsonParseException) {
+                // LLM 生成了格式错误的工具调用参数，降级处理而非崩溃
+                log.warn("LLM 返回的工具调用参数 JSON 格式错误，appId={}，跳过本轮", appId, root);
+                sink.next(JSONUtil.toJsonStr(
+                        AgentEvent.error("AI 生成的工具调用参数格式异常，将自动重试...")));
+                // 不抛出异常 → 让 reflection 循环继续重试
+            } else {
+                throw e;  // 其他错误仍然向上传播
+            }
+        }
     }
 
     /**
@@ -566,7 +577,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
      * 构建Node项目并返回dist产物目录，失败重试3次
      */
     private File buildAndGetDist(File projectDir) {
-        for (int attempt = 1; attempt <= 3; attempt++) {
+        for (int attempt = 1; attempt <= 2; attempt++) {
             try {
                 runCommand(projectDir, packageManagerDetector.detect(projectDir.toPath()).getInstallCommand());
                 runCommand(projectDir, packageManagerDetector.detect(projectDir.toPath()).getRunPrefix() + " build");
@@ -574,10 +585,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 File distDir = detectDistDir(projectDir);
                 if (distDir != null) return distDir;
 
-                if (attempt == 3) throw new BusinessException(ErrorCode.OPERATION_ERROR, "构建产物目录未找到");
+                if (attempt == 2) throw new BusinessException(ErrorCode.OPERATION_ERROR, "构建产物目录未找到");
             } catch (Exception e) {
                 log.error("构建失败 (attempt {}/3): {}", attempt, e.getMessage());
-                if (attempt == 3) throw new BusinessException(ErrorCode.OPERATION_ERROR, "构建失败: " + e.getMessage());
+                if (attempt == 2) throw new BusinessException(ErrorCode.OPERATION_ERROR, "构建失败: " + e.getMessage());
             }
         }
         throw new BusinessException(ErrorCode.OPERATION_ERROR, "构建失败");
@@ -618,7 +629,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     }
 
     @Override
-    public com.yzy.dto.FileTreeNode getFileTree(Long appId) {
+    public FileTreeNode getFileTree(Long appId) {
         App app = getById(appId);
         ThrowUtil.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
 

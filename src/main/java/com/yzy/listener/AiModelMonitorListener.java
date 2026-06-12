@@ -34,13 +34,15 @@ public class AiModelMonitorListener implements ChatModelListener {
     public void onRequest(ChatModelRequestContext requestContext) {
         requestContext.attributes().put(REQUST_START_TIME, Instant.now());
         MonitorContext context = MonitorContextHolder.getContext();
+        if (context == null) return;
         requestContext.attributes().put(MONITOR_CONTEXT, context);
-        metricsCollector.recordRequest(context.getUserId(),context.getAppId(),requestContext.modelProvider().name(),"started");
+        metricsCollector.recordRequest(context.getUserId(), context.getAppId(), requestContext.modelProvider().name(), "started");
     }
 
     @Override
     public void onError(ChatModelErrorContext errorContext) {
         MonitorContext context = MonitorContextHolder.getContext();
+        if (context == null) return;
         errorContext.attributes().put(MONITOR_CONTEXT, context);
         String appId = context.getAppId();
         String userId = context.getUserId();
