@@ -1,107 +1,83 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userApi } from '@/api';
 import { useUserStore } from '@/store/user';
 
-// ─── Right-panel illustration ─────────────────────────────────────────────────
-// Defined outside Login to avoid rerender-no-inline-components violation.
-
-function PhoneIllustration() {
+function BrandMark() {
   return (
-    <svg
-      viewBox="0 0 480 560"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-full max-w-[420px] select-none pointer-events-none"
-      aria-hidden="true"
-    >
-      {/* ── Clouds ── */}
-      {/* Top-right cluster */}
-      <ellipse cx="448" cy="42" rx="76" ry="38" fill="white" fillOpacity="0.24" />
-      <ellipse cx="490" cy="30" rx="52" ry="29" fill="white" fillOpacity="0.18" />
-      <ellipse cx="406" cy="60" rx="42" ry="23" fill="white" fillOpacity="0.15" />
+    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-sm font-black text-white">
+      Z
+    </div>
+  );
+}
 
-      {/* Bottom-left cluster */}
-      <ellipse cx="52" cy="524" rx="82" ry="38" fill="white" fillOpacity="0.26" />
-      <ellipse cx="10" cy="516" rx="50" ry="27" fill="white" fillOpacity="0.19" />
-
-      {/* Bottom-right cluster */}
-      <ellipse cx="438" cy="532" rx="74" ry="36" fill="white" fillOpacity="0.24" />
-      <ellipse cx="484" cy="524" rx="48" ry="26" fill="white" fillOpacity="0.18" />
-
-      {/* ── Phone body ── */}
-      <rect x="140" y="88" width="200" height="376" rx="28" fill="#1E1B4B" />
-      {/* Screen */}
-      <rect x="155" y="110" width="170" height="332" rx="18" fill="url(#screenGrad)" />
-      {/* Notch */}
-      <rect x="218" y="98" width="64" height="9" rx="4.5" fill="#0F0D2A" />
-
-      {/* ── Fingerprint scanner ── */}
-      <circle cx="240" cy="266" r="66" stroke="white" strokeWidth="2.4" strokeOpacity="0.38" />
-      <circle cx="240" cy="266" r="49" stroke="white" strokeWidth="2.4" strokeOpacity="0.35" />
-      <circle cx="240" cy="266" r="33" stroke="white" strokeWidth="2.4" strokeOpacity="0.32" />
-      <circle cx="240" cy="266" r="17" stroke="white" strokeWidth="2" strokeOpacity="0.28"
-        fill="white" fillOpacity="0.08" />
-      {/* Fingerprint arcs */}
-      <path d="M218 264 Q232 247 246 264 Q260 281 274 264"
-        stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.35" fill="none" />
-      <path d="M214 275 Q232 254 250 275 Q265 288 280 275"
-        stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.28" fill="none" />
-
-      {/* Progress bar at screen bottom */}
-      <rect x="178" y="416" width="124" height="6" rx="3" fill="white" fillOpacity="0.16" />
-      <rect x="178" y="416" width="70" height="6" rx="3" fill="url(#progressGrad)" />
-
-      {/* Screen header hint strips */}
-      <rect x="175" y="152" width="88" height="7" rx="3.5" fill="white" fillOpacity="0.28" />
-      <rect x="175" y="165" width="118" height="5" rx="2.5" fill="white" fillOpacity="0.18" />
-
-      {/* ── Speech bubble with checkmark ── */}
-      <rect x="26" y="148" width="94" height="74" rx="14" fill="white" fillOpacity="0.93" />
-      {/* Tail */}
-      <polygon points="58,222 76,222 67,240" fill="white" fillOpacity="0.93" />
-      {/* Checkmark */}
-      <path d="M48 185 L63 200 L98 164"
-        stroke="#7C3AED" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-
-      {/* ── Lock ── */}
-      <rect x="354" y="214" width="82" height="74" rx="13" fill="white" fillOpacity="0.93" />
-      {/* Shackle */}
-      <path d="M371 214 V191 Q395 170 419 191 V214"
-        stroke="#374151" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Keyhole */}
-      <circle cx="395" cy="248" r="11" fill="#7C3AED" fillOpacity="0.75" />
-      <rect x="391" y="252" width="8" height="15" rx="2" fill="#7C3AED" fillOpacity="0.75" />
-
-      {/* ── Decorative dots ── */}
-      <circle cx="104" cy="376" r="6" fill="white" fillOpacity="0.27" />
-      <circle cx="90" cy="396" r="4" fill="white" fillOpacity="0.20" />
-      <circle cx="390" cy="104" r="6" fill="white" fillOpacity="0.27" />
-      <circle cx="408" cy="122" r="4" fill="white" fillOpacity="0.20" />
-
-      <defs>
-        <linearGradient id="screenGrad" x1="155" y1="110" x2="325" y2="442"
-          gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#F472B6" />
-          <stop offset="50%" stopColor="#A855F7" />
-          <stop offset="100%" stopColor="#6D28D9" />
-        </linearGradient>
-        <linearGradient id="progressGrad" x1="178" y1="419" x2="248" y2="419"
-          gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#C4B5FD" />
-          <stop offset="100%" stopColor="#93C5FD" />
-        </linearGradient>
-      </defs>
+function EyeIcon({ open }: { open: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
+      <path
+        d="M3 12s3.2-5 9-5 9 5 9 5-3.2 5-9 5-9-5-9-5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {open ? (
+        <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+      ) : (
+        <path d="M5 5l14 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      )}
     </svg>
   );
 }
 
-// ─── Login / Register page ────────────────────────────────────────────────────
+function ProductPanel() {
+  return (
+    <aside className="hidden min-h-dvh flex-1 bg-slate-950 text-white lg:block">
+      <div className="flex h-full flex-col justify-between p-10">
+        <div>
+          <div className="mb-10 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+            AI 应用生成工作台
+          </div>
+          <h2 className="max-w-xl text-4xl font-semibold leading-tight tracking-normal">
+            从一句需求到可预览、可部署的应用。
+          </h2>
+          <p className="mt-4 max-w-lg text-sm leading-6 text-slate-300">
+            登录后继续管理作品、查看生成记录，并在同一个工作台里调试代码与预览结果。
+          </p>
+        </div>
 
-const INPUT_CLS =
-  'w-full px-4 py-3.5 rounded-xl border border-gray-200 text-sm text-gray-900 ' +
-  'placeholder:text-gray-400 outline-none transition ' +
-  'focus:ring-2 focus:ring-violet-400/50 focus:border-violet-400';
+        <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/30">
+          <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+            <span className="text-sm font-medium text-slate-200">生成流水线</span>
+            <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-medium text-emerald-200">
+              在线
+            </span>
+          </div>
+          <div className="space-y-3">
+            {[
+              ['需求理解', '解析页面目标与交互结构'],
+              ['代码生成', '生成前端文件与业务骨架'],
+              ['质量检查', '检查可运行性与基础体验'],
+            ].map(([title, desc], index) => (
+              <div key={title} className="flex gap-3 rounded-md bg-white/[0.03] p-3">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-cyan-300 text-xs font-bold text-slate-950">
+                  {index + 1}
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-white">{title}</div>
+                  <div className="mt-0.5 text-xs text-slate-400">{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+const inputClass =
+  'mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-950 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:bg-slate-50';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -110,15 +86,25 @@ export default function Login() {
 
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ userAccount: '', userPassword: '', checkPassword: '' });
 
-  // Already authenticated → skip login page
   useEffect(() => {
-    if (user) navigate('/apps', { replace: true });
+    if (user) {
+      navigate('/apps', { replace: true });
+    }
   }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
+    if (!isLogin && form.userPassword !== form.checkPassword) {
+      setError('两次输入的密码不一致。');
+      return;
+    }
+
     setLoading(true);
     try {
       if (isLogin) {
@@ -127,132 +113,141 @@ export default function Login() {
           userPassword: form.userPassword,
         });
         setUser(res.data);
-        navigate('/apps');
+        navigate('/apps', { replace: true });
       } else {
-        if (form.userPassword !== form.checkPassword) {
-          alert('两次密码不一致');
-          return;
-        }
         await userApi.register(form);
         setIsLogin(true);
         setForm((f) => ({ ...f, userPassword: '', checkPassword: '' }));
+        setError('注册成功，请使用新账号登录。');
       }
     } catch (err: any) {
-      alert(err.message || '操作失败');
+      setError(err.message || '操作失败，请稍后重试。');
     } finally {
       setLoading(false);
     }
   };
 
   const switchMode = () => {
+    setError('');
     setIsLogin((v) => !v);
     setForm({ userAccount: '', userPassword: '', checkPassword: '' });
   };
 
   return (
-    <div className="min-h-screen flex">
-
-      {/* ── Left: form panel ── */}
-      <div className="w-full lg:w-[42%] flex flex-col justify-center px-12 py-16 bg-white">
-
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 mb-14">
-          <div className="w-7 h-7 bg-violet-600 rounded-md flex items-center justify-center shrink-0">
-            <span className="text-white text-[11px] font-black leading-none">Z</span>
+    <main className="min-h-dvh bg-slate-50 text-slate-950 lg:flex">
+      <section className="flex min-h-dvh w-full items-center justify-center px-5 py-8 lg:w-[46%] lg:px-10">
+        <div className="w-full max-w-[420px]">
+          <div className="mb-10 flex items-center gap-3">
+            <BrandMark />
+            <div>
+              <div className="text-lg font-bold leading-none">Zeno</div>
+              <div className="mt-1 text-xs text-slate-500">AI Code Studio</div>
+            </div>
           </div>
-          <span className="text-[17px] font-bold tracking-tight text-gray-900">Zeno</span>
-        </div>
 
-        {/* Heading */}
-        <div className="mb-10">
-          <h1 className="text-[2.45rem] font-extrabold text-gray-900 leading-[1.17]">
-            {isLogin ? (
-              <>嗨，<br />欢迎回来</>
-            ) : (
-              <>创建账号，<br />开始体验</>
+          <div className="mb-8">
+            <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
+              {isLogin ? '登录到工作台' : '创建账号'}
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              {isLogin
+                ? '继续生成应用、管理作品和查看历史对话。'
+                : '创建账号后即可保存作品并继续生成应用。'}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <div>
+              <label htmlFor="userAccount" className="text-sm font-medium text-slate-800">
+                账号
+              </label>
+              <input
+                id="userAccount"
+                type="text"
+                value={form.userAccount}
+                onChange={(e) => setForm({ ...form, userAccount: e.target.value })}
+                required
+                autoComplete="username"
+                disabled={loading}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="userPassword" className="text-sm font-medium text-slate-800">
+                密码
+              </label>
+              <div className="relative">
+                <input
+                  id="userPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.userPassword}
+                  onChange={(e) => setForm({ ...form, userPassword: e.target.value })}
+                  required
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  disabled={loading}
+                  className={`${inputClass} pr-12`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-1 top-3 flex h-10 w-10 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                  aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                >
+                  <EyeIcon open={showPassword} />
+                </button>
+              </div>
+            </div>
+
+            {!isLogin && (
+              <div>
+                <label htmlFor="checkPassword" className="text-sm font-medium text-slate-800">
+                  确认密码
+                </label>
+                <input
+                  id="checkPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.checkPassword}
+                  onChange={(e) => setForm({ ...form, checkPassword: e.target.value })}
+                  required
+                  autoComplete="new-password"
+                  disabled={loading}
+                  className={inputClass}
+                />
+              </div>
             )}
-          </h1>
-          <p className="mt-3.5 text-sm text-gray-400 leading-relaxed">
-            {isLogin
-              ? '嘿，欢迎回到你的专属创作空间'
-              : '填写以下信息，加入 Zeno 创作社区'}
+
+            <div aria-live="polite" className="min-h-6 text-sm">
+              {error && (
+                <p className={error.includes('成功') ? 'text-emerald-700' : 'text-red-600'}>
+                  {error}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex h-12 w-full items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? '处理中...' : isLogin ? '登录' : '注册'}
+            </button>
+          </form>
+
+          <p className="mt-8 text-sm text-slate-600">
+            {isLogin ? '还没有账号？' : '已有账号？'}
+            <button
+              type="button"
+              onClick={switchMode}
+              className="ml-2 min-h-11 rounded-md font-semibold text-cyan-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+            >
+              {isLogin ? '创建账号' : '去登录'}
+            </button>
           </p>
         </div>
+      </section>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-[320px] w-full">
-          <input
-            type="text"
-            placeholder="账号"
-            value={form.userAccount}
-            onChange={(e) => setForm({ ...form, userAccount: e.target.value })}
-            required
-            autoComplete="username"
-            className={INPUT_CLS}
-          />
-          <input
-            type="password"
-            placeholder="密码"
-            value={form.userPassword}
-            onChange={(e) => setForm({ ...form, userPassword: e.target.value })}
-            required
-            autoComplete={isLogin ? 'current-password' : 'new-password'}
-            className={INPUT_CLS}
-          />
-          {!isLogin && (
-            <input
-              type="password"
-              placeholder="确认密码"
-              value={form.checkPassword}
-              onChange={(e) => setForm({ ...form, checkPassword: e.target.value })}
-              required
-              autoComplete="new-password"
-              className={INPUT_CLS}
-            />
-          )}
-
-          {isLogin && (
-            <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer select-none -mt-1">
-              <input type="checkbox" className="w-4 h-4 rounded accent-violet-600" />
-              记住我
-            </label>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 mt-1 rounded-xl bg-violet-600 text-white font-bold text-sm
-                       tracking-widest hover:bg-violet-700 active:scale-[0.985]
-                       disabled:opacity-60 transition-all"
-          >
-            {loading ? '处理中...' : isLogin ? 'Sign In' : 'Sign Up'}
-          </button>
-        </form>
-
-        {/* Switch mode */}
-        <p className="mt-10 text-sm text-gray-400">
-          {isLogin ? "Don't have an account?" : '已有账号？'}
-          <button
-            type="button"
-            onClick={switchMode}
-            className="ml-1.5 text-violet-600 font-semibold hover:underline"
-          >
-            {isLogin ? 'Sign Up' : '去登录'}
-          </button>
-        </p>
-      </div>
-
-      {/* ── Right: gradient + illustration ── */}
-      <div
-        className="hidden lg:flex flex-1 items-center justify-center overflow-hidden relative"
-        style={{
-          background:
-            'linear-gradient(148deg, #5B21B6 0%, #7C3AED 36%, #9D72FF 66%, #C4B5FD 100%)',
-        }}
-      >
-        <PhoneIllustration />
-      </div>
-
-    </div>
+      <ProductPanel />
+    </main>
   );
 }
