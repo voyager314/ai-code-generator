@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { userApi } from '@/api';
 import { useUserStore } from '@/store/user';
 import Login from '@/pages/Login';
 import Home from '@/pages/Home';
@@ -8,7 +10,45 @@ import Admin from '@/pages/Admin';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useUserStore((s) => s.user);
-  return user ? <>{children}</> : <Navigate to="/login" />;
+  const setUser = useUserStore((s) => s.setUser);
+  const [checking, setChecking] = useState(Boolean(user));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!user) {
+      setChecking(false);
+      return;
+    }
+
+    setChecking(true);
+    userApi.getLoginUser()
+      .then((res) => {
+        if (!cancelled) {
+          setUser(res.data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUser(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setChecking(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setUser, user?.id]);
+
+  if (checking) {
+    return null;
+  }
+
+  return user ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {

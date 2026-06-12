@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Tree, NodeRendererProps } from 'react-arborist';
 import { Highlight, themes } from 'prism-react-renderer';
 import { appApi } from '@/api';
@@ -51,11 +51,30 @@ export default function CodeViewer({ appId }: CodeViewerProps) {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [treeData, setTreeData] = useState<FileTreeNode[]>([]);
+  const [treeHeight, setTreeHeight] = useState(400);
   const [loading, setLoading] = useState(true);
+  const treeContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadFileTree();
   }, [appId]);
+
+  useEffect(() => {
+    const container = treeContainerRef.current;
+    if (!container) return;
+
+    const updateTreeHeight = () => {
+      setTreeHeight(container.clientHeight || 400);
+    };
+
+    updateTreeHeight();
+    const resizeObserver = new ResizeObserver(updateTreeHeight);
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   const loadFileTree = async () => {
     try {
@@ -111,7 +130,7 @@ export default function CodeViewer({ appId }: CodeViewerProps) {
     <div className="h-full flex">
       <div className="w-56 border-r bg-gray-50 flex flex-col">
         <div className="px-3 py-2 text-xs font-semibold text-gray-700 border-b">文件</div>
-        <div className="flex-1 overflow-hidden">
+        <div ref={treeContainerRef} className="flex-1 overflow-hidden">
           {loading ? (
             <div className="p-4 text-sm text-gray-500">加载中...</div>
           ) : treeData.length === 0 ? (
@@ -121,7 +140,7 @@ export default function CodeViewer({ appId }: CodeViewerProps) {
               data={treeData}
               openByDefault={false}
               width="100%"
-              height="100%"
+              height={treeHeight}
               indent={16}
               rowHeight={28}
               onSelect={(nodes) => nodes[0] && handleFileClick(nodes[0].data)}

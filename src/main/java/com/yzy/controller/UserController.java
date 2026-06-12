@@ -67,7 +67,7 @@ public class UserController {
     public BaseResponse<UserLoginVO> getLoginUser(HttpServletRequest request){
         Object currUser = request.getSession().getAttribute("USER_LOGIN_STATE");
         if(currUser==null){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
         UserLoginVO userLoginVO = userService.getUserLoginVO((User) currUser);
         return ResultUtil.success(userLoginVO);
