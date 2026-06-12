@@ -33,6 +33,7 @@ export default function Home() {
   const [search, setSearch] = useState('');
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agentMode, setAgentMode] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -64,7 +65,7 @@ export default function Home() {
         initPrompt: input.trim(),
         appName: `应用_${Date.now()}`,
       });
-      navigate(`/app/${res.data}`);
+      navigate(`/app/${res.data}`, { state: { initMsg: input.trim(), agentMode } });
     } catch (err: any) {
       alert(err.message || '创建失败');
       setLoading(false);
@@ -324,7 +325,7 @@ export default function Home() {
             </div>
 
             {/* Input Bar */}
-            <div className="relative rounded-2xl border border-[#e5e5e5] bg-[#fafafa] shadow-sm transition-colors focus-within:border-[#c5c5c7] focus-within:bg-white focus-within:shadow-md">
+            <div className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] shadow-sm transition-colors focus-within:border-[#c5c5c7] focus-within:bg-white focus-within:shadow-md">
               <textarea
                 ref={inputRef}
                 placeholder="描述你想创建的应用..."
@@ -338,15 +339,31 @@ export default function Home() {
                 }}
                 disabled={loading}
                 rows={1}
-                className="block w-full resize-none bg-transparent px-5 pt-4 pb-14 text-[15px] text-[#1a1a1a] placeholder:text-[#c5c5c7] outline-none disabled:opacity-50"
-                style={{ minHeight: '60px', maxHeight: '200px' }}
+                className="block w-full resize-none bg-transparent px-5 pt-4 pb-2 text-[15px] text-[#1a1a1a] placeholder:text-[#c5c5c7] outline-none disabled:opacity-50"
+                style={{ minHeight: '44px', maxHeight: '200px' }}
                 onInput={(e) => {
                   const target = e.target as HTMLTextAreaElement;
                   target.style.height = 'auto';
                   target.style.height = Math.min(target.scrollHeight, 200) + 'px';
                 }}
               />
-              <div className="absolute bottom-3 right-3">
+              <div className="flex items-center justify-between px-3 pb-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setAgentMode((v) => !v)}
+                  disabled={loading}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                    agentMode
+                      ? 'border-indigo-400 bg-indigo-50 text-indigo-600'
+                      : 'border-[#d4d4d4] bg-white text-[#8e8e93] hover:border-[#b4b4b8] hover:text-[#636366]'
+                  }`}
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
+                    <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M9 21h6M10 17v4M14 17v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                  深度思考
+                </button>
                 <button
                   onClick={handleSend}
                   disabled={loading || !input.trim()}

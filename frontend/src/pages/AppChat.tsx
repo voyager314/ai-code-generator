@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, lazy, Suspense, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { appApi, chatApi } from '@/api';
@@ -217,11 +217,18 @@ function AgentSwitch({
   );
 }
 
+interface NavState {
+  initMsg?: string;
+  agentMode?: boolean;
+}
+
 export default function AppChat() {
   const { id } = useParams<{ id: string }>();
   const appId = Number(id);
   const navigate = useNavigate();
+  const location = useLocation();
   const setUser = useUserStore((s) => s.setUser);
+  const navState = location.state as NavState | null;
 
   const [app, setApp] = useState<AppDetailVO | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -229,6 +236,7 @@ export default function AppChat() {
   const [loading, setLoading] = useState(false);
   const [appLoading, setAppLoading] = useState(true);
   const [deploying, setDeploying] = useState(false);
+  const [deployUrl, setDeployUrl] = useState('');
   const [agentMode, setAgentMode] = useState(false);
   const [view, setView] = useState<'code' | 'preview'>('code');
   const [notice, setNotice] = useState('');
@@ -320,13 +328,11 @@ export default function AppChat() {
     }
   }, []);
 
-  const handleSend = async () => {
-    if (!input.trim() || loading || !Number.isFinite(appId)) return;
+  const startGeneration = useCallback((msg: string, agent: boolean) => {
+    if (loading || !Number.isFinite(appId)) return;
 
-    const userMsg = input.trim();
-    setInput('');
+    pushMsg({ role: 'user', content: msg });
     setNotice('');
-    pushMsg({ role: 'user', content: userMsg });
     setLoading(true);
 
     esRef.current?.close();
@@ -334,8 +340,8 @@ export default function AppChat() {
     const url =
       `/api/app/chat/gen/code` +
       `?appId=${appId}` +
-      `&msg=${encodeURIComponent(userMsg)}` +
-      `&agent=${agentMode}`;
+      `&msg=${encodeURIComponent(msg)}` +
+      `&agent=${agent}`;
 
     const es = new EventSource(url);
     esRef.current = es;
@@ -365,7 +371,7 @@ export default function AppChat() {
       }
     });
 
-    if (!agentMode) {
+    if (!agent) {
       es.addEventListener('message', (e) => {
         try {
           const { d } = JSON.parse(e.data) as { d: string };
@@ -461,13 +467,31 @@ export default function AppChat() {
       finish();
       setNotice('连接中断，请重试。');
     };
+  }, [appId, loading, pushMsg, appendAiText, setUser, loadApp]);
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+    const msg = input.trim();
+    setInput('');
+    startGeneration(msg, agentMode);
   };
+
+  const initConsumed = useRef(false);
+  useEffect(() => {
+    if (navState?.initMsg && !appLoading && !initConsumed.current) {
+      initConsumed.current = true;
+      setAgentMode(navState.agentMode ?? false);
+      startGeneration(navState.initMsg, navState.agentMode ?? false);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [navState, appLoading, startGeneration, navigate, location.pathname]);
 
   const handleDeploy = async () => {
     try {
       setDeploying(true);
       setNotice('');
       const res = await appApi.deploy(appId);
+      setDeployUrl(res.data);
       setNotice(`部署成功：${res.data}`);
       loadApp();
     } catch (err: any) {
@@ -503,9 +527,9 @@ export default function AppChat() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {app?.deployKey && (
+            {(deployUrl || app?.deployKey) && (
               <a
-                href={`http://${app.deployKey}`}
+                href={deployUrl || `http://${app?.deployKey}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
