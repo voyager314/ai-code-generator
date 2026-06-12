@@ -9,7 +9,8 @@ import type { AppVO } from '@/types';
 
 export default function AppList() {
   const navigate = useNavigate();
-  const user = useUserStore((s) => s.user);
+  const userAccount = useUserStore((s) => s.user?.userAccount);
+  const isAdmin = useUserStore((s) => s.isAdmin());
   const setUser = useUserStore((s) => s.setUser);
   const [tab, setTab] = useState<'my' | 'star'>('my');
   const [apps, setApps] = useState<AppVO[]>([]);
@@ -58,8 +59,8 @@ export default function AppList() {
       <header className="bg-white border-b px-6 py-4 flex justify-between items-center">
         <h1 className="text-xl font-bold">Wise Code</h1>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600">{user?.userAccount}</span>
-          {user?.userRole === 'admin' && (
+          <span className="text-sm text-gray-600">{userAccount}</span>
+          {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => navigate('/admin')}>
               管理后台
             </Button>

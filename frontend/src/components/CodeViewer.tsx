@@ -15,6 +15,16 @@ interface CodeViewerProps {
   appId: number;
 }
 
+function getLanguage(filename: string) {
+  if (filename.endsWith('.jsx') || filename.endsWith('.js')) return 'jsx';
+  if (filename.endsWith('.tsx') || filename.endsWith('.ts')) return 'tsx';
+  if (filename.endsWith('.css')) return 'css';
+  if (filename.endsWith('.html')) return 'html';
+  if (filename.endsWith('.json')) return 'json';
+  if (filename.endsWith('.vue')) return 'jsx';
+  return 'text';
+}
+
 function FileTreeNode({ node, style, dragHandle }: NodeRendererProps<FileTreeNode>) {
   const isFolder = node.data.type === 'directory';
   const icon = isFolder ? (node.isOpen ? '📂' : '📁') : '📄';
@@ -96,15 +106,6 @@ export default function CodeViewer({ appId }: CodeViewerProps) {
   };
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
-  const getLanguage = (filename: string) => {
-    if (filename.endsWith('.jsx') || filename.endsWith('.js')) return 'jsx';
-    if (filename.endsWith('.tsx') || filename.endsWith('.ts')) return 'tsx';
-    if (filename.endsWith('.css')) return 'css';
-    if (filename.endsWith('.html')) return 'html';
-    if (filename.endsWith('.json')) return 'json';
-    if (filename.endsWith('.vue')) return 'jsx';
-    return 'text';
-  };
 
   return (
     <div className="h-full flex">
