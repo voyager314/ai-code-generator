@@ -25,7 +25,7 @@ public class ReasoningStreamingChatModelConfig {
     private Duration timeout;
 
     /**
-     * 推理流式模型（用于 Vue 项目生成，带工具调用）
+     * 推理流式模型
      */
     @Bean
     public StreamingChatModel reasoningStreamingChatModel() {

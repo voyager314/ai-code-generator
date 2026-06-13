@@ -478,7 +478,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 // LLM 生成了格式错误的工具调用参数，降级处理而非崩溃。
                 // 必须先清理记忆：LangChain4j 已将 AiMessage(tool_calls) 写入 Redis，
                 // 但因参数解析失败导致 ToolExecutionResultMessage 未写入，形成非法消息序列。
-                // 若不清理，下一轮调用 API 时会被 DeepSeek 以 "insufficient tool messages" 拒绝。
+                // 若不清理，下一轮调用 API 时会被模型以 "insufficient tool messages" 拒绝。
                 log.warn("LLM 返回的工具调用参数 JSON 格式错误，appId={}，清理孤立工具调用后重试", appId, root);
                 codingAgentServiceFactory.sanitizeMemory(appId);
                 sink.next(JSONUtil.toJsonStr(
