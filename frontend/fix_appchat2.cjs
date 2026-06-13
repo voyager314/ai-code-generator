@@ -1,0 +1,183 @@
+const fs = require('fs');
+
+let content = fs.readFileSync('D:/14297/idea_projects/wise-code/frontend/src/pages/AppChat.tsx', 'utf-8');
+
+const returnStatement = `  return (
+    <main className="flex min-h-dvh flex-col bg-[#212121] text-[#ececec]">
+      <header className="border-b border-[#333] bg-[#1a1a1a] px-4 py-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#b4b4b8] transition hover:bg-[#333] hover:text-[#ececec] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              aria-label="返回作品列表"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-[#ececec]">
+                {appLoading ? '加载应用...' : app?.appName || \`应用 \${appId}\`}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#8e8e93]">
+                <span>{app?.codeGenType || '未生成'}</span>
+                {app?.deployKey && <span className="h-1 w-1 rounded-full bg-[#555]" />}
+                {app?.deployKey && <span>已部署</span>}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {(deployUrl || app?.deployKey) && (
+              <a
+                href={deployUrl || \`http://\${app?.deployKey}\`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#333] px-3 text-sm font-medium text-[#ececec] transition hover:bg-[#444] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              >
+                <ExternalLink className="h-4 w-4" />
+                访问
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => appApi.download(appId)}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#333] px-3 text-sm font-medium text-[#ececec] transition hover:bg-[#444] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            >
+              <Download className="h-4 w-4" />
+              下载
+            </button>
+            <button
+              type="button"
+              onClick={handleDeploy}
+              disabled={deploying || appLoading}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#212121]"
+            >
+              <Rocket className="h-4 w-4" />
+              {deploying ? '部署中' : '部署'}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 overflow-hidden">
+        <PanelGroup direction="horizontal" className="h-full">
+          {/* Chat Panel */}
+          <Panel defaultSize={30} minSize={20} maxSize={50} className="flex flex-col bg-[#171717] relative">
+            <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#444] scrollbar-track-transparent">
+              {messages.length === 0 && !loading ? (
+                <div className="rounded-xl border border-dashed border-[#444] bg-[#212121] p-6 text-center text-sm leading-6 text-[#8e8e93]">
+                  还没有对话记录。<br/>输入你想调整的页面、功能或交互，开始一次生成。
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((msg) => (
+                    <MessageBubble
+                      key={msg.id}
+                      msg={msg}
+                      onApprove={handleApprove}
+                      onReject={handleReject}
+                    />
+                  ))}
+                  {loading && (
+                    <div className="flex justify-start">
+                      <div className="rounded-2xl rounded-tl-sm bg-[#2f2f2f] px-4 py-2 text-sm text-[#b4b4b8]">
+                        {agentMode ? 'Agent 正在思考并执行...' : '正在生成...'}
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} className="h-2" />
+                </div>
+              )}
+            </div>
+
+            {/* Input Area */}
+            <div className="border-t border-[#333] bg-[#1a1a1a] p-4">
+              <div className="relative flex items-end gap-2 rounded-2xl bg-[#2f2f2f] focus-within:bg-[#333] transition-colors p-2">
+                <div className="flex-1">
+                  <textarea
+                    placeholder={agentMode ? '描述目标，Agent 会自动执行文件操作' : '描述你想生成或修改的内容'}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    disabled={loading}
+                    rows={1}
+                    className="block w-full resize-none bg-transparent px-3 py-2 text-[15px] text-[#ececec] placeholder:text-[#8e8e93] outline-none disabled:opacity-50 scrollbar-thin scrollbar-thumb-[#555] scrollbar-track-transparent"
+                    style={{ minHeight: '44px', maxHeight: '200px' }}
+                    onInput={(e) => {
+                      const target = e.target;
+                      target.style.height = 'auto';
+                      target.style.height = Math.min(target.scrollHeight, 200) + 'px';
+                    }}
+                  />
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2 pb-1 pr-1">
+                  <button
+                    type="button"
+                    onClick={() => setAgentMode((v) => !v)}
+                    disabled={loading}
+                    className={\`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 \${
+                      agentMode
+                        ? 'border-indigo-500 bg-[#3a3a3a] text-indigo-400'
+                        : 'border-transparent bg-transparent text-[#b4b4b8] hover:bg-[#404040] hover:text-[#ececec]'
+                    }\`}
+                    title="Agent 模式"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
+                      <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M9 21h6M10 17v4M14 17v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleSend}
+                    disabled={loading || !input.trim()}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition-all hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="发送"
+                  >
+                    <Send className="h-4 w-4 ml-0.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Panel>
+
+          <PanelResizeHandle className="w-1 bg-[#333] hover:bg-indigo-500 transition-colors cursor-col-resize relative after:absolute after:inset-y-0 after:-inset-x-2 after:bg-transparent" />
+
+          {/* Right Panel */}
+          <Panel defaultSize={70} minSize={50} className="flex flex-col bg-[#212121]">
+            <div className="flex-1 overflow-hidden relative">
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center text-sm text-[#8e8e93]">
+                    <div className="flex flex-col items-center gap-3">
+                      <svg className="h-6 w-6 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" opacity="0.2" />
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                      </svg>
+                      正在加载代码...
+                    </div>
+                  </div>
+                }
+              >
+                <CodeViewer appId={appId} />
+              </Suspense>
+            </div>
+          </Panel>
+        </PanelGroup>
+      </div>
+    </main>
+  );
+}
+`
+
+const returnIdx = content.lastIndexOf('  return (');
+if (returnIdx > -1) {
+  content = content.substring(0, returnIdx);
+}
+fs.writeFileSync('D:/14297/idea_projects/wise-code/frontend/src/pages/AppChat.tsx', content + returnStatement);

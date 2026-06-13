@@ -27,7 +27,6 @@ function SidebarIcon({ name }: { name: 'collapse' | 'expand' | 'search' | 'plus'
 export default function Home() {
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
-  const isAdmin = useUserStore((s) => s.isAdmin());
   const setUser = useUserStore((s) => s.setUser);
 
   const [apps, setApps] = useState<AppVO[]>([]);
@@ -93,13 +92,7 @@ export default function Home() {
     navigate('/login');
   };
 
-  const handleNewChat = () => {
-    setInput('');
-    setMobileOpen(false);
-    inputRef.current?.focus();
-  };
-
-  const userName = user?.userName || user?.userAccount || '用户';
+  const userAccount = user?.userAccount || '用户';
 
   const sidebar = (
     <aside
@@ -107,39 +100,16 @@ export default function Home() {
         collapsed ? 'w-[68px]' : 'w-[260px]'
       }`}
     >
-      {/* Header and New Chat */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-2">
+      {/* Header - Collapse/Expand */}
+      <div className="flex items-center justify-end px-3 pt-3 pb-2">
         <button
-          onClick={handleNewChat}
-          className={`flex h-10 flex-1 items-center gap-2.5 rounded-lg px-2 text-sm font-medium text-[#ececec] transition-colors hover:bg-[#212121] ${
-            collapsed ? 'justify-center' : ''
-          }`}
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-[#b4b4b8] hover:bg-[#212121] hover:text-[#ececec] transition-colors"
+          aria-label={collapsed ? '展开侧边栏' : '收起侧边栏'}
         >
-          <SidebarIcon name="plus" />
-          {!collapsed && <span>新聊天</span>}
+          <SidebarIcon name={collapsed ? 'expand' : 'collapse'} />
         </button>
-        {!collapsed && (
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#b4b4b8] hover:bg-[#212121] hover:text-[#ececec] transition-colors"
-            aria-label="收起侧边栏"
-          >
-            <SidebarIcon name="collapse" />
-          </button>
-        )}
       </div>
-
-      {collapsed && (
-        <div className="px-3 pb-2">
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="flex h-10 w-full items-center justify-center rounded-lg text-[#b4b4b8] hover:bg-[#212121] hover:text-[#ececec] transition-colors"
-            aria-label="展开侧边栏"
-          >
-            <SidebarIcon name="expand" />
-          </button>
-        </div>
-      )}
 
       {/* Search */}
       {!collapsed && (
@@ -210,28 +180,26 @@ export default function Home() {
 
       {/* Bottom: User Info */}
       <div className="p-3">
-        {isAdmin && (
-          <button
-            onClick={() => navigate('/admin')}
-            className={`mb-1 flex w-full h-12 items-center gap-2.5 rounded-lg px-2.5 text-sm text-[#ececec] transition-colors hover:bg-[#212121] ${
-              collapsed ? 'justify-center' : ''
-            }`}
-          >
-            <SidebarIcon name="admin" />
-            {!collapsed && <span>管理后台</span>}
-          </button>
-        )}
         <div
-          className={`flex h-12 items-center gap-2.5 rounded-lg px-2.5 transition-colors hover:bg-[#212121] cursor-pointer ${
+          className={`flex h-12 items-center gap-2.5 rounded-lg px-2.5 ${
             collapsed ? 'justify-center' : ''
           }`}
-          onClick={handleLogout}
         >
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-gradient-to-br from-purple-500 to-indigo-500 text-xs font-semibold text-white">
-            {userName.charAt(0).toUpperCase()}
-          </div>
+          <svg viewBox="0 0 28 28" fill="none" className="h-7 w-7 shrink-0" aria-hidden="true">
+            <rect width="28" height="28" rx="7" fill="#2e2b5f"/>
+            <ellipse cx="14" cy="27" rx="7.5" ry="5" fill="#5b5ea6"/>
+            <circle cx="14" cy="12" r="6" fill="#fde9cf"/>
+            <path d="M8 11C8 7 10.5 5 14 5C17.5 5 20 7 20 11" fill="#3d2b1f"/>
+            <circle cx="11.5" cy="12" r="1.1" fill="#2d1b10"/>
+            <circle cx="16.5" cy="12" r="1.1" fill="#2d1b10"/>
+            <circle cx="12" cy="11.4" r="0.4" fill="white"/>
+            <circle cx="17" cy="11.4" r="0.4" fill="white"/>
+            <ellipse cx="10.2" cy="14.5" rx="1.3" ry="0.8" fill="#ffa098" opacity="0.45"/>
+            <ellipse cx="17.8" cy="14.5" rx="1.3" ry="0.8" fill="#ffa098" opacity="0.45"/>
+            <path d="M11.5 16C12.3 17.4 13.2 17.8 14 17.8C14.8 17.8 15.7 17.4 16.5 16" stroke="#c47a55" strokeWidth="0.9" fill="none" strokeLinecap="round"/>
+          </svg>
           {!collapsed && (
-            <span className="truncate text-sm font-medium text-[#ececec]">{userName}</span>
+            <span className="truncate text-sm font-medium text-[#ececec]">{userAccount}</span>
           )}
         </div>
       </div>
