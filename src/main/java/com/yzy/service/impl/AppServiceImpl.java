@@ -411,11 +411,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
      */
     private Flux<String> processAgentWithReflection(Long appId, CodingAgentService agentService, String msg) {
         int maxRetries = reflectionProperties.getMaxRetries();
+        MonitorContext context = MonitorContextHolder.getContext();
 
         return Flux.create(sink -> {
             approvalService.registerSink(appId, sink);
 
+            //实际 LLM 调用切换到了 boundedElastic 调度器线程
             Schedulers.boundedElastic().schedule(() -> {
+                //此处新建线程，再次确认避免上下文丢失
+                if(context!=null)MonitorContextHolder.setContext(context);
                 try {
                     runAgentRound(agentService, appId, msg, sink);
 

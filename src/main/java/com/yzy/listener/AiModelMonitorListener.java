@@ -58,6 +58,7 @@ public class AiModelMonitorListener implements ChatModelListener {
         Map<Object, Object> attributes = responseContext.attributes();
         //请求响应不在一个线程，从AI context里取参数
         MonitorContext context = (MonitorContext) attributes.get(MONITOR_CONTEXT);
+        if (context == null) return;
         String userId = context.getUserId();
         String appId = context.getAppId();
         String modelName = responseContext.chatResponse().modelName();
