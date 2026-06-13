@@ -63,32 +63,63 @@ function ApprovalCard({
 }: {
   msg: ChatMessage;
   onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onReject: (id: string, customMessage: string) => void;
 }) {
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [rejectMsg, setRejectMsg] = useState('');
   const resolved = msg.approvalStatus !== 'pending';
+
+  const handleRejectConfirm = () => {
+    if (!msg.approvalId) return;
+    onReject(msg.approvalId, rejectMsg);
+  };
 
   return (
     <div className="max-w-[92%] rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
       <div className="mb-1 font-semibold">Agent 请求确认</div>
       <p className="whitespace-pre-wrap leading-6">{msg.content}</p>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-col gap-2">
         {resolved ? (
-          <span className="rounded-md bg-white px-2.5 py-1 text-xs font-medium text-amber-800">
+          <span className="rounded-md bg-white px-2.5 py-1 text-xs font-medium text-amber-800 self-start">
             {msg.approvalStatus === 'approved' ? '已允许' : '已拒绝'}
           </span>
-        ) : (
+        ) : showRejectInput ? (
           <>
+            <input
+              type="text"
+              className="w-full rounded-md border border-amber-300 bg-white px-2.5 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              placeholder="告诉 Agent 为什么拒绝，或者希望它怎么做（可留空）"
+              value={rejectMsg}
+              onChange={(e) => setRejectMsg(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleRejectConfirm()}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={handleRejectConfirm}>
+                确认拒绝
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setShowRejectInput(false); setRejectMsg(''); }}
+              >
+                取消
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="flex gap-2">
             <Button size="sm" onClick={() => msg.approvalId && onApprove(msg.approvalId)}>
               允许
             </Button>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => msg.approvalId && onReject(msg.approvalId)}
+              onClick={() => setShowRejectInput(true)}
             >
               拒绝
             </Button>
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -102,7 +133,7 @@ function MessageBubble({
 }: {
   msg: ChatMessage;
   onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onReject: (id: string, customMessage: string) => void;
 }) {
   if (msg.role === 'user') {
     return (
@@ -317,9 +348,9 @@ export default function AppChat() {
     }
   }, []);
 
-  const handleReject = useCallback(async (approvalId: string) => {
+  const handleReject = useCallback(async (approvalId: string, customMessage: string) => {
     try {
-      await chatApi.approveAgent({ approvalId, approved: false });
+      await chatApi.approveAgent({ approvalId, approved: false, customMessage: customMessage || undefined });
       setMessages((prev) =>
         prev.map((m) => (m.approvalId === approvalId ? { ...m, approvalStatus: 'rejected' } : m))
       );

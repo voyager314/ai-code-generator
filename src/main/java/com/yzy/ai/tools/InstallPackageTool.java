@@ -56,8 +56,9 @@ public class InstallPackageTool extends BaseTool {
         PackageManager pm = detector.detect(root);
         String command = pm.getAddCommandWithDev(isDev) + " " + packages.strip();
 
-        if (!requestApproval(appId, command)) {
-            return "[用户拒绝执行该命令]";
+        String rejection = requestApproval(appId, command);
+        if (rejection != null) {
+            return rejection;
         }
 
         try {
@@ -94,18 +95,24 @@ public class InstallPackageTool extends BaseTool {
         }
     }
 
-    private boolean requestApproval(long appId, String command) {
+    private String requestApproval(long appId, String command) {
         FluxSink<String> sink = approvalService.getSink(appId);
         if (sink == null) {
-            return true;
+            return null;
         }
         String approvalId = UUID.randomUUID().toString();
         AgentEvent event = AgentEvent.approvalRequest(approvalId, "即将执行: " + command);
         sink.next(JSONUtil.toJsonStr(event));
-        boolean approved = approvalService.requestAndWait(approvalId);
-        AgentEvent resultEvent = AgentEvent.approvalResult(approvalId, approved);
+        ApprovalService.ApprovalResult result = approvalService.requestAndWait(approvalId);
+        AgentEvent resultEvent = AgentEvent.approvalResult(approvalId, result.approved());
         sink.next(JSONUtil.toJsonStr(resultEvent));
-        return approved;
+        if (result.approved()) {
+            return null;
+        }
+        String msg = result.customMessage();
+        return (msg != null && !msg.isBlank())
+                ? "[用户拒绝执行该命令。用户反馈: " + msg + "]"
+                : "[用户拒绝执行该命令]";
     }
 
     private ProcessBuilder buildProcess(String command, Path workDir) {

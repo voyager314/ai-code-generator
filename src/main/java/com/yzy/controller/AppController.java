@@ -248,7 +248,7 @@ public class AppController {
      */
     @PostMapping("/agent/approve")
     public BaseResponse<Boolean> approveAgentAction(@RequestBody AgentApprovalRequest request) {
-        boolean result = approvalService.submitApproval(request.getApprovalId(), request.isApproved());
+        boolean result = approvalService.submitApproval(request.getApprovalId(), request.isApproved(), request.getCustomMessage());
         return ResultUtil.success(result);
     }
 

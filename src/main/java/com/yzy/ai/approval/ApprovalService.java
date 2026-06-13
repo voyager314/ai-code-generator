@@ -23,8 +23,19 @@ import java.util.concurrent.*;
 @Slf4j
 @Component
 public class ApprovalService {
+
+    /** 审批结果：是否批准 + 用户拒绝时的自定义反馈 */
+    public record ApprovalResult(boolean approved, String customMessage) {
+        public static ApprovalResult ofApproved() {
+            return new ApprovalResult(true, null);
+        }
+        public static ApprovalResult ofRejected(String customMessage) {
+            return new ApprovalResult(false, customMessage);
+        }
+    }
+
     /** approvalId → 等待用户响应的 Future */
-    private final Map<String, CompletableFuture<Boolean>> pendingApprovals = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<ApprovalResult>> pendingApprovals = new ConcurrentHashMap<>();
     /** appId → SSE 事件流的 Sink，用于从工具线程向前端注入审批事件 */
     private final Map<Long, FluxSink<String>> appSinks = new ConcurrentHashMap<>();
 
@@ -43,41 +54,43 @@ public class ApprovalService {
     }
 
     /**
-     * 创建审批 Future 并阻塞等待用户响应，超时返回 false（拒绝）
+     * 创建审批 Future 并阻塞等待用户响应，超时返回拒绝结果
      */
-    public boolean requestAndWait(String approvalId, long timeoutSeconds) {
-        CompletableFuture<Boolean> future = new CompletableFuture<>();
+    public ApprovalResult requestAndWait(String approvalId, long timeoutSeconds) {
+        CompletableFuture<ApprovalResult> future = new CompletableFuture<>();
         pendingApprovals.put(approvalId, future);
         try {
             return future.get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             log.warn("审批超时: {}", approvalId);
-            return false;
+            return ApprovalResult.ofRejected(null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return false;
+            return ApprovalResult.ofRejected(null);
         } catch (ExecutionException e) {
             log.error("审批异常: {}", approvalId, e);
-            return false;
+            return ApprovalResult.ofRejected(null);
         } finally {
             pendingApprovals.remove(approvalId);
         }
     }
 
-    public boolean requestAndWait(String approvalId) {
+    public ApprovalResult requestAndWait(String approvalId) {
         return requestAndWait(approvalId, DEFAULT_TIMEOUT_SECONDS);
     }
 
     /**
-     * 前端通过 REST 回调提交审批结果，complete 对应的 Future 以解除工具线程阻塞
+     * 前端通过 REST 回调提交审批结果，complete 对应的 Future 以解除工具线程阻塞。
+     * 拒绝时 customMessage 可携带用户的自定义反馈，供工具返回给 LLM。
      */
-    public boolean submitApproval(String approvalId, boolean approved) {
-        CompletableFuture<Boolean> future = pendingApprovals.get(approvalId);
+    public boolean submitApproval(String approvalId, boolean approved, String customMessage) {
+        CompletableFuture<ApprovalResult> future = pendingApprovals.get(approvalId);
         if (future == null) {
             log.warn("审批ID不存在或已过期: {}", approvalId);
             return false;
         }
-        future.complete(approved);
+        ApprovalResult result = approved ? ApprovalResult.ofApproved() : ApprovalResult.ofRejected(customMessage);
+        future.complete(result);
         return true;
     }
 }

@@ -27,7 +27,7 @@ public class FileModifyTool extends BaseTool{
     @Autowired
     private WorkspaceResolver workspaceResolver;
 
-    @Tool("修改指定路径的文件")
+    @Tool("修改指定路径的文件，直接字符串匹配替换")
     public String modifyFile(@P("文件相对路径") String relativePath,
                              @P("要修改的旧内容") String oldContent,
                              @P("替换后的新内容") String newContent,

@@ -75,8 +75,9 @@ public class CommandExecuteTool extends BaseTool {
 
         validateCommand(command);
 
-        if (!requestApproval(appId, command)) {
-            return "[用户拒绝执行该命令]";
+        String rejection = requestApproval(appId, command);
+        if (rejection != null) {
+            return rejection;
         }
 
         try {
@@ -117,23 +118,30 @@ public class CommandExecuteTool extends BaseTool {
      * 通过 ApprovalService 请求用户审批。
      * 向 SSE 流推送 APPROVAL_REQUEST 事件，阻塞等待用户通过 REST 回调响应。
      * 无 sink（非 Agent 模式）时直接放行。
+     * 返回 null 表示批准，返回非 null 字符串表示拒绝原因（含用户自定义反馈）。
      */
-    private boolean requestApproval(long appId, String command) {
+    private String requestApproval(long appId, String command) {
         FluxSink<String> sink = approvalService.getSink(appId);
         if (sink == null) {
-            return true;
+            return null;
         }
 
         String approvalId = UUID.randomUUID().toString();
         AgentEvent event = AgentEvent.approvalRequest(approvalId, "即将执行命令: " + command);
         sink.next(JSONUtil.toJsonStr(event));
 
-        boolean approved = approvalService.requestAndWait(approvalId);
+        ApprovalService.ApprovalResult result = approvalService.requestAndWait(approvalId);
 
-        AgentEvent resultEvent = AgentEvent.approvalResult(approvalId, approved);
+        AgentEvent resultEvent = AgentEvent.approvalResult(approvalId, result.approved());
         sink.next(JSONUtil.toJsonStr(resultEvent));
 
-        return approved;
+        if (result.approved()) {
+            return null;
+        }
+        String msg = result.customMessage();
+        return (msg != null && !msg.isBlank())
+                ? "[用户拒绝执行该命令。用户反馈: " + msg + "]"
+                : "[用户拒绝执行该命令]";
     }
 
     /**

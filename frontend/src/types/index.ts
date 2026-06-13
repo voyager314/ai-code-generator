@@ -150,6 +150,7 @@ export interface ChatHistoryQueryRequest {
 export interface AgentApprovalRequest {
   approvalId: string;
   approved: boolean;
+  customMessage?: string;
 }
 
 /**

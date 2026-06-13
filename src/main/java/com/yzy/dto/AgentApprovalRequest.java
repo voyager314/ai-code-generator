@@ -14,4 +14,6 @@ public class AgentApprovalRequest {
     private String approvalId;
     /** true=批准执行，false=拒绝 */
     private boolean approved;
+    /** 拒绝时用户的自定义反馈，会回传给 LLM 作为上下文 */
+    private String customMessage;
 }
