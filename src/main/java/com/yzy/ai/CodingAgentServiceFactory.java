@@ -6,6 +6,8 @@ import com.yzy.ai.guardrail.PromptInputGuardRail;
 import com.yzy.ai.tools.ToolManager;
 import com.yzy.service.ChatHistoryService;
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
@@ -17,6 +19,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * CodingAgentService 工厂
@@ -47,12 +54,17 @@ public class CodingAgentServiceFactory {
     @Autowired
     private ToolManager toolManager;
 
+    // 记录每个 appId 对应的 ChatMemory，用于故障时重置记忆
+    private final ConcurrentHashMap<Long, MessageWindowChatMemory> memoryRegistry = new ConcurrentHashMap<>();
+
     private final Cache<Long, CodingAgentService> cache = Caffeine.newBuilder()
             .maximumSize(500)
             .expireAfterWrite(Duration.ofMinutes(30))
             .expireAfterAccess(Duration.ofMinutes(10))
-            .removalListener((k, v, cause) ->
-                    log.warn("CodingAgentService 实例被移除 appId:{}, cause:{}", k, cause))
+            .removalListener((k, v, cause) -> {
+                log.warn("CodingAgentService 实例被移除 appId:{}, cause:{}", k, cause);
+                memoryRegistry.remove(k);
+            })
             .build();
 
     /**
@@ -72,6 +84,7 @@ public class CodingAgentServiceFactory {
                 .build();
 
         chatHistoryService.loadChatHistory(appId, memory, 30);
+        memoryRegistry.put(appId, memory);
 
         return AiServices.builder(CodingAgentService.class)
                 .chatModel(chatModel)
@@ -83,5 +96,47 @@ public class CodingAgentServiceFactory {
                                 "Error: There is no tool called " + toolExecRequest.name()))
                 .inputGuardrails(new PromptInputGuardRail())
                 .build();
+    }
+
+    /**
+     * 移除记忆末尾的孤立工具调用消息（有 tool_calls 但缺少对应 tool result 的 AiMessage）。
+     * 当工具参数解析失败导致 AiMessage 已写入 Redis 但 ToolExecutionResultMessage 未写入时调用，
+     * 防止下一轮 API 请求因非法消息序列被 DeepSeek 拒绝。
+     */
+    public void sanitizeMemory(Long appId) {
+        MessageWindowChatMemory memory = memoryRegistry.get(appId);
+        if (memory == null) return;
+
+        List<ChatMessage> messages = new ArrayList<>(memory.messages());
+        if (messages.isEmpty()) return;
+
+        int cutTo = -1;
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            ChatMessage msg = messages.get(i);
+            if (!(msg instanceof AiMessage aiMsg) || !aiMsg.hasToolExecutionRequests()) break;
+
+            Set<String> callIds = aiMsg.toolExecutionRequests().stream()
+                    .map(r -> r.id())
+                    .collect(Collectors.toSet());
+
+            for (int j = i + 1; j < messages.size(); j++) {
+                if (messages.get(j) instanceof ToolExecutionResultMessage res) {
+                    callIds.remove(res.id());
+                }
+            }
+
+            if (!callIds.isEmpty()) {
+                cutTo = i;
+            }
+            break;
+        }
+
+        if (cutTo >= 0) {
+            log.warn("sanitizeMemory: 移除 appId={} 记忆中 {} 条孤立工具调用消息", appId,
+                    messages.size() - cutTo);
+            List<ChatMessage> sanitized = new ArrayList<>(messages.subList(0, cutTo));
+            memory.clear();
+            sanitized.forEach(memory::add);
+        }
     }
 }

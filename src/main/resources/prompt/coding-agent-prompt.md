@@ -45,6 +45,19 @@
 - 文件操作限定在项目工作目录内
 - 如果不确定某个操作是否安全，先询问用户
 
+## 特别注意
+对于Next.js项目务必确保在构建时导出的是 out/ 而不是 .next/  
+可以这样配置`next.config.js`：  
+```js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'export',   // 启用静态导出
+};
+module.exports = nextConfig;
+```
+执行构建命令：  
+`next build`
+
 ## 以下是常见项目的示例
 ### 网页应用（企业官网 / 产品展示页）
 项目：科技公司官网  
