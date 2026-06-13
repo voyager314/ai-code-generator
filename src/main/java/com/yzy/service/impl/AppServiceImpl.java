@@ -197,7 +197,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 构建查询条件
         QueryWrapper queryWrapper = new QueryWrapper()
                 .eq("userId", userId)
-                .eq("isDelete", 0);
+                .ge("createTime", java.time.LocalDateTime.now().minusMonths(1))
+                .orderBy("createTime", false);
 
         if (request.getAppName() != null && !request.getAppName().isEmpty()) {
             queryWrapper.like("appName", request.getAppName());
