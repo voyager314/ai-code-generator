@@ -58,14 +58,15 @@ export default function Home() {
   );
 
   const handleSend = async () => {
-    if (!input.trim() || loading) return;
+    const prompt = input.trim();
+    if (!prompt || loading) return;
     setLoading(true);
     try {
       const res = await appApi.create({
-        initPrompt: input.trim(),
+        initPrompt: prompt,
         appName: `应用_${Date.now()}`,
       });
-      navigate(`/app/${res.data}`, { state: { initMsg: input.trim(), agentMode } });
+      navigate(`/app/${res.data}`, { state: { initMsg: prompt, agentMode } });
     } catch (err: any) {
       alert(err.message || '创建失败');
       setLoading(false);
@@ -199,7 +200,17 @@ export default function Home() {
             <path d="M11.5 16C12.3 17.4 13.2 17.8 14 17.8C14.8 17.8 15.7 17.4 16.5 16" stroke="#c47a55" strokeWidth="0.9" fill="none" strokeLinecap="round"/>
           </svg>
           {!collapsed && (
-            <span className="truncate text-sm font-medium text-[#ececec]">{userAccount}</span>
+            <>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#ececec]">{userAccount}</span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#b4b4b8] transition-colors hover:bg-[#212121] hover:text-[#ececec]"
+                aria-label="Logout"
+              >
+                <SidebarIcon name="logout" />
+              </button>
+            </>
           )}
         </div>
       </div>

@@ -361,18 +361,19 @@ export default function AppChat() {
 
   const startGeneration = useCallback((msg: string, agent: boolean) => {
     if (loading || !Number.isFinite(appId)) return;
+    const prompt = msg.trim();
+    if (!prompt) {
+      setNotice('Message cannot be empty.');
+      return;
+    }
 
-    pushMsg({ role: 'user', content: msg });
+    pushMsg({ role: 'user', content: prompt });
     setNotice('');
     setLoading(true);
 
     esRef.current?.close();
 
-    const url =
-      `/api/app/chat/gen/code` +
-      `?appId=${appId}` +
-      `&msg=${encodeURIComponent(msg)}` +
-      `&agent=${agent}`;
+    const url = appApi.chatToGenAppUrl({ appId, msg: prompt, agent });
 
     const es = new EventSource(url);
     esRef.current = es;

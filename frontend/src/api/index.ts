@@ -74,6 +74,22 @@ export const appApi = {
   create: (data: AppAddRequest) =>
     request.post<any, BaseResponse<number>>('/app/create', data),
 
+  /** GET /app/chat/gen/code SSE URL */
+  chatToGenAppUrl: (params: { appId: number; msg: string; agent?: boolean }) => {
+    const msg = params.msg.trim();
+    if (!msg) {
+      throw new Error('Message cannot be empty');
+    }
+
+    const searchParams = new URLSearchParams({
+      appId: String(params.appId),
+      msg,
+      agent: String(params.agent ?? false),
+    });
+
+    return `/api/app/chat/gen/code?${searchParams.toString()}`;
+  },
+
   /** POST /app/update — owner only; name/cover/priority */
   update: (data: AppUpdateRequest) =>
     request.post<any, BaseResponse<boolean>>('/app/update', data),

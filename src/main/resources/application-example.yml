@@ -74,3 +74,22 @@ agent:
 # 部署路径
 code:
   deploy-host: http://your-server-ip/dist
+
+# 上下文压缩配置
+context-compression:
+  enabled: true
+  protection-zone-tokens: 40000
+  effective-budget: 131072
+  tiers:
+    snip-threshold: 0.6
+    prune-threshold: 0.8
+    summarize-threshold: 0.95
+  models:
+    deepseek-v4-flash:
+      context-window: 1048576
+  tool-budgets:
+    executeCommand: 5000
+    runScript: 5000
+    readFile: 3000
+    searchCode: 1500
+    readDir: 1000

@@ -97,7 +97,7 @@ public class CompressibleChatMemory implements dev.langchain4j.memory.ChatMemory
 
     @Override
     public void clear() {
-        store.updateMessages(appId, List.of());
+        store.deleteMessages(appId);
         tokenTracker.remove(appId);
     }
 
