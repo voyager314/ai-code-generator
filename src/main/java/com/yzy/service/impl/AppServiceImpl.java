@@ -412,6 +412,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
      */
     private Flux<String> processAgentWithReflection(Long appId, CodingAgentService agentService, String msg) {
         int maxRetries = reflectionProperties.getMaxRetries();
+        //此处提前获取context，避免线程切换造成丢失
         MonitorContext context = MonitorContextHolder.getContext();
 
         return Flux.create(sink -> {
