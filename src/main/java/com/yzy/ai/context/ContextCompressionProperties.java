@@ -30,7 +30,7 @@ public class ContextCompressionProperties {
      * 有效上下文预算（token），tier 阈值以此为分母。
      * 默认 128K，远小于 deepseek-v4-flash 的 1M 物理上限，用于更积极地控制成本。
      */
-    private int effectiveBudget = 131072;
+    private int effectiveBudget = 32768;
 
     /**
      * 各 tier 触发阈值

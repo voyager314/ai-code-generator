@@ -164,11 +164,32 @@ public class CompressibleChatMemory implements dev.langchain4j.memory.ChatMemory
 
     /**
      * 存储安全阀：超过上限时驱逐最老的非 SystemMessage 消息。
+     * 驱逐 AiMessage 时必须同步删除其关联的 ToolExecutionResultMessage，
+     * 驱逐 ToolExecutionResultMessage 时必须同步删除其对应的 AiMessage（如果 AiMessage 所有 tool result 都被删了）。
+     * 否则模型会因非法消息序列报错：
+     * "Messages with role 'tool' must be a response to a preceding message with 'tool_calls'"
      */
     private void evictIfNeeded(List<ChatMessage> messages) {
         while (messages.size() > MAX_STORED_MESSAGES) {
+            // 找到第一个可删除的位置（跳过 SystemMessage）
             int removeIdx = (messages.getFirst() instanceof SystemMessage) ? 1 : 0;
-            messages.remove(removeIdx);
+            if (removeIdx >= messages.size()) break;
+
+            ChatMessage toRemove = messages.get(removeIdx);
+
+            if (toRemove instanceof AiMessage ai && ai.hasToolExecutionRequests()) {
+                // 删除 AiMessage 时，必须一并删除它后面关联的所有 ToolExecutionResultMessage
+                Set<String> callIds = ai.toolExecutionRequests().stream()
+                        .map(r -> r.id())
+                        .collect(Collectors.toSet());
+                messages.remove(removeIdx);
+                messages.removeIf(m -> m instanceof ToolExecutionResultMessage res && callIds.contains(res.id()));
+            } else if (toRemove instanceof ToolExecutionResultMessage) {
+                // 孤立的 ToolExecutionResultMessage（其 AiMessage 已被之前的驱逐删掉），直接移除
+                messages.remove(removeIdx);
+            } else {
+                messages.remove(removeIdx);
+            }
         }
     }
 

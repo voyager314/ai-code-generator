@@ -43,17 +43,20 @@ public class AiModelMonitorListener implements ChatModelListener {
     public void onRequest(ChatModelRequestContext requestContext) {
         requestContext.attributes().put(REQUST_START_TIME, Instant.now());
 
-        List<ChatMessage> messages = requestContext.chatRequest().messages();
-        int charCount = messages.stream()
-                .mapToInt(m -> TokenEstimator.extractText(m).length())
-                .sum();
-        requestContext.attributes().put(REQUEST_CHAR_COUNT, charCount);
-        requestContext.attributes().put(REQUEST_MSG_COUNT, messages.size());
-
         MonitorContext context = MonitorContextHolder.getContext();
         if (context == null) return;
         requestContext.attributes().put(MONITOR_CONTEXT, context);
         metricsCollector.recordRequest(context.getUserId(), context.getAppId(), requestContext.modelProvider().name(), "started");
+
+        // token 校准数据采集，不影响原有监控流程
+        try {
+            List<ChatMessage> messages = requestContext.chatRequest().messages();
+            int charCount = messages.stream()
+                    .mapToInt(m -> TokenEstimator.extractText(m).length())
+                    .sum();
+            requestContext.attributes().put(REQUEST_CHAR_COUNT, charCount);
+            requestContext.attributes().put(REQUEST_MSG_COUNT, messages.size());
+        } catch (Exception ignored) {}
     }
 
     @Override
