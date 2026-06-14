@@ -17,4 +17,9 @@ public interface AppConstant {
      * 图片临时目录
      */
     String IMG_DIR=System.getProperty("user.dir")+ File.separator+"temp"+File.separator+"img";
+
+    /**
+     * 工具输出归档子目录名（位于各工作区根目录下）
+     */
+    String LOG_SUBDIR = "log";
 }
