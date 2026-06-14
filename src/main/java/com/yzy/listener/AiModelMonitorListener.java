@@ -1,8 +1,11 @@
 package com.yzy.listener;
 
+import com.yzy.ai.context.TokenEstimator;
+import com.yzy.ai.context.TokenTracker;
 import com.yzy.collector.AiModelMetricsCollector;
 import com.yzy.monitor.MonitorContext;
 import com.yzy.monitor.MonitorContextHolder;
+import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.model.chat.listener.ChatModelErrorContext;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -26,13 +30,26 @@ public class AiModelMonitorListener implements ChatModelListener {
      * 记录监控上下文（请求和响应不是一个线程）
       */
     private static final String MONITOR_CONTEXT = "monitor_context";
+    private static final String REQUEST_CHAR_COUNT = "request_char_count";
+    private static final String REQUEST_MSG_COUNT = "request_msg_count";
 
     @Autowired
     private AiModelMetricsCollector metricsCollector;
 
+    @Autowired
+    private TokenTracker tokenTracker;
+
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {
         requestContext.attributes().put(REQUST_START_TIME, Instant.now());
+
+        List<ChatMessage> messages = requestContext.chatRequest().messages();
+        int charCount = messages.stream()
+                .mapToInt(m -> TokenEstimator.extractText(m).length())
+                .sum();
+        requestContext.attributes().put(REQUEST_CHAR_COUNT, charCount);
+        requestContext.attributes().put(REQUEST_MSG_COUNT, messages.size());
+
         MonitorContext context = MonitorContextHolder.getContext();
         if (context == null) return;
         requestContext.attributes().put(MONITOR_CONTEXT, context);
@@ -93,6 +110,16 @@ public class AiModelMonitorListener implements ChatModelListener {
             metricsCollector.recordToken(userId,appId,modelName,"input",tokenUsage.inputTokenCount().longValue());
             metricsCollector.recordToken(userId,appId,modelName,"output",tokenUsage.outputTokenCount().longValue());
             metricsCollector.recordToken(userId,appId,modelName,"total",tokenUsage.totalTokenCount().longValue());
+
+            Map<Object, Object> attrs = responseContext.attributes();
+            Integer charCount = (Integer) attrs.get(REQUEST_CHAR_COUNT);
+            Integer msgCount = (Integer) attrs.get(REQUEST_MSG_COUNT);
+            if (charCount != null && msgCount != null) {
+                try {
+                    long numAppId = Long.parseLong(appId);
+                    tokenTracker.recordApiUsage(numAppId, tokenUsage.inputTokenCount().longValue(), charCount, msgCount);
+                } catch (NumberFormatException ignored) {}
+            }
         }
     }
 }
