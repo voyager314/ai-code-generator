@@ -6,7 +6,7 @@ import com.yzy.dto.ChatHistoryAddRequest;
 import com.yzy.dto.ChatHistoryQueryRequest;
 import com.yzy.entity.ChatHistory;
 import com.yzy.vo.ChatHistoryVO;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.memory.ChatMemory;
 
 /**
  * 对话历史 服务层。
@@ -68,6 +68,6 @@ public interface ChatHistoryService extends IService<ChatHistory> {
      * @param maxCnt 每次最大可加载条数
      * @return 历史对话条数
      */
-    int loadChatHistory(Long appId, MessageWindowChatMemory memory,int maxCnt);
+    int loadChatHistory(Long appId, ChatMemory memory, int maxCnt);
 
 }

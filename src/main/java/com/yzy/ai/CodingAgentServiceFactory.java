@@ -2,6 +2,10 @@ package com.yzy.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.yzy.ai.context.CompressibleChatMemory;
+import com.yzy.ai.context.ContextCompressionProperties;
+import com.yzy.ai.context.TokenTracker;
+import com.yzy.ai.context.ToolOutputArchiver;
 import com.yzy.ai.guardrail.PromptInputGuardRail;
 import com.yzy.ai.tools.ToolManager;
 import com.yzy.service.ChatHistoryService;
@@ -9,7 +13,6 @@ import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.service.AiServices;
@@ -54,8 +57,16 @@ public class CodingAgentServiceFactory {
     @Autowired
     private ToolManager toolManager;
 
-    // 记录每个 appId 对应的 ChatMemory，用于故障时重置记忆
-    private final ConcurrentHashMap<Long, MessageWindowChatMemory> memoryRegistry = new ConcurrentHashMap<>();
+    @Autowired
+    private ContextCompressionProperties compressionProperties;
+
+    @Autowired
+    private TokenTracker tokenTracker;
+
+    @Autowired
+    private ToolOutputArchiver toolOutputArchiver;
+
+    private final ConcurrentHashMap<Long, CompressibleChatMemory> memoryRegistry = new ConcurrentHashMap<>();
 
     private final Cache<Long, CodingAgentService> cache = Caffeine.newBuilder()
             .maximumSize(500)
@@ -77,11 +88,8 @@ public class CodingAgentServiceFactory {
     private CodingAgentService createService(Long appId) {
         log.info("创建 appId:{} 的 CodingAgentService 实例", appId);
 
-        MessageWindowChatMemory memory = MessageWindowChatMemory.builder()
-                .id(appId)
-                .chatMemoryStore(redisChatMemoryStore)
-                .maxMessages(30)
-                .build();
+        CompressibleChatMemory memory = new CompressibleChatMemory(
+                appId, redisChatMemoryStore, compressionProperties, tokenTracker, toolOutputArchiver);
 
         chatHistoryService.loadChatHistory(appId, memory, 30);
         memoryRegistry.put(appId, memory);
@@ -104,10 +112,10 @@ public class CodingAgentServiceFactory {
      * 防止下一轮 API 请求因非法消息序列被 DeepSeek 拒绝。
      */
     public void sanitizeMemory(Long appId) {
-        MessageWindowChatMemory memory = memoryRegistry.get(appId);
+        CompressibleChatMemory memory = memoryRegistry.get(appId);
         if (memory == null) return;
 
-        List<ChatMessage> messages = new ArrayList<>(memory.messages());
+        List<ChatMessage> messages = memory.rawMessages();
         if (messages.isEmpty()) return;
 
         int cutTo = -1;

@@ -18,7 +18,7 @@ import com.yzy.service.ChatHistoryService;
 import com.yzy.vo.ChatHistoryVO;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.memory.ChatMemory;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -190,7 +190,7 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
     }
 
     @Override
-    public int loadChatHistory(Long appId, MessageWindowChatMemory memory, int maxCnt) {
+    public int loadChatHistory(Long appId, ChatMemory memory, int maxCnt) {
         QueryWrapper queryWrapper = QueryWrapper.create()
                 .eq(ChatHistory::getAppId, appId)
                 .orderBy(ChatHistory::getCreateTime, false)
