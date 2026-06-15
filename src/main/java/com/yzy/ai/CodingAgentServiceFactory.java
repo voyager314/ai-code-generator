@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.yzy.ai.context.CompressibleChatMemory;
 import com.yzy.ai.context.ContextCompressionProperties;
+import com.yzy.ai.context.ContextSummarizer;
 import com.yzy.ai.context.TokenTracker;
 import com.yzy.ai.context.ToolOutputArchiver;
 import com.yzy.ai.guardrail.PromptInputGuardRail;
@@ -66,6 +67,9 @@ public class CodingAgentServiceFactory {
     @Autowired
     private ToolOutputArchiver toolOutputArchiver;
 
+    @Autowired
+    private ContextSummarizer contextSummarizer;
+
     private final ConcurrentHashMap<Long, CompressibleChatMemory> memoryRegistry = new ConcurrentHashMap<>();
 
     private final Cache<Long, CodingAgentService> cache = Caffeine.newBuilder()
@@ -89,7 +93,8 @@ public class CodingAgentServiceFactory {
         log.info("创建 appId:{} 的 CodingAgentService 实例", appId);
 
         CompressibleChatMemory memory = new CompressibleChatMemory(
-                appId, redisChatMemoryStore, compressionProperties, tokenTracker, toolOutputArchiver);
+                appId, redisChatMemoryStore, compressionProperties, tokenTracker, toolOutputArchiver,
+                contextSummarizer);
 
         chatHistoryService.loadChatHistory(appId, memory, 30);
         memoryRegistry.put(appId, memory);

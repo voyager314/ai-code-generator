@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -31,19 +33,23 @@ public class CompressibleChatMemory implements ChatMemory {
     private final ContextCompressionProperties config;
     private final TokenTracker tokenTracker;
     private final ToolOutputArchiver archiver;
+    private final ContextSummarizer contextSummarizer;
 
     private static final int MAX_STORED_MESSAGES = 100;
+    private static final ConcurrentHashMap<Long, AtomicBoolean> SUMMARIZE_LOCKS = new ConcurrentHashMap<>();
 
     public CompressibleChatMemory(Long appId,
                                    ChatMemoryStore store,
                                    ContextCompressionProperties config,
                                    TokenTracker tokenTracker,
-                                   ToolOutputArchiver archiver) {
+                                   ToolOutputArchiver archiver,
+                                   ContextSummarizer contextSummarizer) {
         this.appId = appId;
         this.store = store;
         this.config = config;
         this.tokenTracker = tokenTracker;
         this.archiver = archiver;
+        this.contextSummarizer = contextSummarizer;
     }
 
     @Override
@@ -84,14 +90,15 @@ public class CompressibleChatMemory implements ChatMemory {
             return messages;
         }
 
-        // Tier 3 (SUMMARIZE) 属于方案 B，当前仅记录日志，降级到 PRUNE
+        int protectionStart = findProtectionZoneStart(messages);
+
         if (tier == CompressionTier.SUMMARIZE) {
-            log.warn("appId={} 上下文占比 {}% 触发 Tier 3 (SUMMARIZE)，当前未实现，降级到 PRUNE",
-                    appId, String.format("%.1f", ratio * 100));
+            messages = trySummarize(messages, ratio, protectionStart);
+            // 摘要后重新计算保护区，用 PRUNE 兜底
+            protectionStart = findProtectionZoneStart(messages);
             tier = CompressionTier.PRUNE;
         }
 
-        int protectionStart = findProtectionZoneStart(messages);
         log.info("appId={} 上下文压缩: tier={}, tokens≈{}, ratio={}%, protectedFrom={}",
                 appId, tier, currentTokens, String.format("%.1f", ratio * 100), protectionStart);
 
@@ -116,6 +123,69 @@ public class CompressibleChatMemory implements ChatMemory {
      */
     public void replaceAll(List<ChatMessage> messages) {
         store.updateMessages(appId, messages);
+    }
+
+    /**
+     * 尝试执行 Tier 3 增量摘要。成功则返回摘要后的消息列表，失败则返回原列表。
+     */
+    private List<ChatMessage> trySummarize(List<ChatMessage> messages, double ratio, int protectionStart) {
+        if (contextSummarizer == null || !contextSummarizer.isAvailable()) {
+            log.warn("appId={} 触发 Tier 3 ({}%) 但摘要器不可用，降级 PRUNE",
+                    appId, String.format("%.1f", ratio * 100));
+            return messages;
+        }
+
+        AtomicBoolean lock = SUMMARIZE_LOCKS.computeIfAbsent(appId, k -> new AtomicBoolean(false));
+        if (!lock.compareAndSet(false, true)) {
+            log.warn("appId={} Tier 3 摘要进行中，本次降级 PRUNE", appId);
+            return messages;
+        }
+
+        try {
+            int summaryIdx = SummaryMarker.findLast(messages);
+            String lastSummary = summaryIdx >= 0
+                    ? SummaryMarker.extractContent(messages.get(summaryIdx)) : "";
+
+            // delta = 上次摘要之后 ~ 保护区之前
+            int deltaStart = summaryIdx + 1;
+            // 跳过 SystemMessage
+            if (deltaStart < messages.size() && messages.get(deltaStart) instanceof SystemMessage) {
+                deltaStart++;
+            }
+            if (deltaStart >= protectionStart) {
+                log.info("appId={} Tier 3 无可摘要的 delta 消息，降级 PRUNE", appId);
+                return messages;
+            }
+
+            List<ChatMessage> delta = messages.subList(deltaStart, protectionStart);
+            if (delta.isEmpty()) {
+                return messages;
+            }
+
+            log.info("appId={} Tier 3 开始摘要: ratio={}%, deltaSize={}", appId,
+                    String.format("%.1f", ratio * 100), delta.size());
+
+            String newSummary = contextSummarizer.summarize(appId, lastSummary, delta);
+
+            // 构建新消息列表：[SystemMessage(如有)] + [新摘要] + [保护区消息]
+            List<ChatMessage> result = new ArrayList<>();
+            if (!messages.isEmpty() && messages.getFirst() instanceof SystemMessage sys) {
+                result.add(sys);
+            }
+            result.add(SummaryMarker.create(newSummary));
+            result.addAll(messages.subList(protectionStart, messages.size()));
+
+            store.updateMessages(appId, result);
+            tokenTracker.remove(appId);
+
+            log.info("appId={} Tier 3 摘要完成: 消息数 {} → {}", appId, messages.size(), result.size());
+            return result;
+        } catch (Exception e) {
+            log.error("appId={} Tier 3 摘要失败，降级 PRUNE: {}", appId, e.getMessage());
+            return messages;
+        } finally {
+            lock.set(false);
+        }
     }
 
     /**
