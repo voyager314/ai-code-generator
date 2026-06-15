@@ -93,10 +93,30 @@ public class CompressibleChatMemory implements ChatMemory {
         int protectionStart = findProtectionZoneStart(messages);
 
         if (tier == CompressionTier.SUMMARIZE) {
-            messages = trySummarize(messages, ratio, protectionStart);
-            // 摘要后重新计算保护区，用 PRUNE 兜底
-            protectionStart = findProtectionZoneStart(messages);
-            tier = CompressionTier.PRUNE;
+            // 先试 PRUNE（零成本），看能否救回来
+            List<ChatMessage> pruned = MessageCompressor.compress(messages, CompressionTier.PRUNE, protectionStart);
+            int prunedTokens = estimateCurrentTokens(pruned);
+            double prunedRatio = (double) prunedTokens / config.getEffectiveBudget();
+
+            if (prunedRatio >= config.getTiers().getSummarizeThreshold()) {
+                // PRUNE 救不回来，调 LLM
+                messages = trySummarize(messages, ratio, protectionStart);
+                currentTokens = estimateCurrentTokens(messages);
+                ratio = (double) currentTokens / config.getEffectiveBudget();
+                tier = CompressionTier.fromRatio(ratio, config.getTiers());
+                protectionStart = findProtectionZoneStart(messages);
+                if (tier == CompressionTier.SUMMARIZE) {
+                    tier = CompressionTier.PRUNE;
+                }
+                if (tier == CompressionTier.NONE) {
+                    return messages;
+                }
+            } else {
+                // PRUNE 够用，跳过 LLM
+                log.info("appId={} PRUNE 已将 ratio 从 {}% 降至 {}%，跳过 Tier 3",
+                        appId, String.format("%.1f", ratio * 100), String.format("%.1f", prunedRatio * 100));
+                tier = CompressionTier.fromRatio(prunedRatio, config.getTiers());
+            }
         }
 
         log.info("appId={} 上下文压缩: tier={}, tokens≈{}, ratio={}%, protectedFrom={}",
