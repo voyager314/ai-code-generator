@@ -107,44 +107,70 @@ public class CodingAgentServiceFactory {
     }
 
     /**
-     * 移除记忆末尾的孤立工具调用消息（有 tool_calls 但缺少对应 tool result 的 AiMessage）。
-     * 当工具参数解析失败导致 AiMessage 已写入 Redis 但 ToolExecutionResultMessage 未写入时调用，
-     * 防止下一轮 API 请求因非法消息序列被 DeepSeek 拒绝。
+     * 扫描并修复记忆中所有非法的工具调用消息序列。
+     * <p>
+     * 处理的非法模式：
+     * - AiMessage(tool_calls) 缺少部分或全部 ToolExecutionResultMessage
+     * - 孤立的 ToolExecutionResultMessage（对应的 AiMessage 不存在）
      */
     public void sanitizeMemory(Long appId) {
         CompressibleChatMemory memory = memoryRegistry.get(appId);
         if (memory == null) return;
 
-        List<ChatMessage> messages = memory.rawMessages();
-        if (messages.isEmpty()) return;
+        List<ChatMessage> raw = memory.rawMessages();
+        if (raw.isEmpty()) return;
 
-        int cutTo = -1;
-        for (int i = messages.size() - 1; i >= 0; i--) {
+        List<ChatMessage> sanitized = sanitizeMessages(raw);
+        int removed = raw.size() - sanitized.size();
+        if (removed == 0) return;
+
+        log.warn("sanitizeMemory: appId={} 移除了 {} 条非法消息", appId, removed);
+        memory.replaceAll(sanitized);
+    }
+
+    /**
+     * 线性扫描消息列表，丢弃不完整的工具调用组和孤立的工具结果。
+     * <p>
+     * 合法的工具调用组：AiMessage(tool_calls=[id1,id2]) 紧跟 ToolExecutionResultMessage(id1), ToolExecutionResultMessage(id2)。
+     * 组内 tool result 数量与 tool call 数量不一致时，整组丢弃。
+     */
+    private List<ChatMessage> sanitizeMessages(List<ChatMessage> messages) {
+        List<ChatMessage> result = new ArrayList<>(messages.size());
+        int i = 0;
+
+        while (i < messages.size()) {
             ChatMessage msg = messages.get(i);
-            if (!(msg instanceof AiMessage aiMsg) || !aiMsg.hasToolExecutionRequests()) break;
 
-            Set<String> callIds = aiMsg.toolExecutionRequests().stream()
-                    .map(r -> r.id())
-                    .collect(Collectors.toSet());
+            if (msg instanceof AiMessage ai && ai.hasToolExecutionRequests()) {
+                Set<String> expectedIds = ai.toolExecutionRequests().stream()
+                        .map(r -> r.id())
+                        .collect(Collectors.toSet());
 
-            for (int j = i + 1; j < messages.size(); j++) {
-                if (messages.get(j) instanceof ToolExecutionResultMessage res) {
-                    callIds.remove(res.id());
+                List<ToolExecutionResultMessage> collected = new ArrayList<>();
+                int j = i + 1;
+                while (j < messages.size() && messages.get(j) instanceof ToolExecutionResultMessage tres) {
+                    if (expectedIds.contains(tres.id())) {
+                        collected.add(tres);
+                    }
+                    j++;
                 }
-            }
 
-            if (!callIds.isEmpty()) {
-                cutTo = i;
+                if (collected.size() == expectedIds.size()) {
+                    result.add(ai);
+                    result.addAll(collected);
+                } else {
+                    log.warn("sanitizeMessages: 丢弃不完整的工具调用组, expected={}, got={}",
+                            expectedIds.size(), collected.size());
+                }
+                i = j;
+            } else if (msg instanceof ToolExecutionResultMessage tres) {
+                log.warn("sanitizeMessages: 丢弃孤立的 ToolExecutionResultMessage, id={}", tres.id());
+                i++;
+            } else {
+                result.add(msg);
+                i++;
             }
-            break;
         }
-
-        if (cutTo >= 0) {
-            log.warn("sanitizeMemory: 移除 appId={} 记忆中 {} 条孤立工具调用消息", appId,
-                    messages.size() - cutTo);
-            List<ChatMessage> sanitized = new ArrayList<>(messages.subList(0, cutTo));
-            memory.clear();
-            sanitized.forEach(memory::add);
-        }
+        return result;
     }
 }

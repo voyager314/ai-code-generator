@@ -7,7 +7,6 @@ import java.util.List;
 /**
  * 基于字符数的 token 估算器。
  * <p>
- * DeepSeek 无公开 Java tokenizer，使用字符数估算。
  * charsPerToken 可通过 API 返回的实际 token 数在运行时校准。
  * 对于 tier 判定（阈值间隔 20%），±15% 的估算误差不影响决策。
  */
@@ -44,6 +43,13 @@ public final class TokenEstimator {
         return charsPerToken;
     }
 
+    /**
+     * 消息提取
+     * 系统消息、ai消息、工具执行结果、用户消息直接返回
+     * 工具执行请求返回方法名和参数
+     * @param message
+     * @return
+     */
     public static String extractText(ChatMessage message) {
         if (message instanceof SystemMessage sys) {
             return sys.text();

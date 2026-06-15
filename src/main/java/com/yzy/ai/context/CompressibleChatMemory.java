@@ -1,6 +1,10 @@
 package com.yzy.ai.context;
 
-import dev.langchain4j.data.message.*;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.ToolExecutionResultMessage;
+import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import lombok.extern.slf4j.Slf4j;
 
@@ -20,7 +24,7 @@ import java.util.stream.Collectors;
  * </ul>
  */
 @Slf4j
-public class CompressibleChatMemory implements dev.langchain4j.memory.ChatMemory {
+public class CompressibleChatMemory implements ChatMemory {
 
     private final Long appId;
     private final ChatMemoryStore store;
@@ -62,7 +66,6 @@ public class CompressibleChatMemory implements dev.langchain4j.memory.ChatMemory
         }
 
         evictIfNeeded(messages);
-        cleanOrphanedToolResults(messages);
         store.updateMessages(appId, messages);
     }
 
@@ -109,6 +112,13 @@ public class CompressibleChatMemory implements dev.langchain4j.memory.ChatMemory
     }
 
     /**
+     * 批量替换 store 中的消息，单次 Redis 写入，供 sanitizeMemory 使用。
+     */
+    public void replaceAll(List<ChatMessage> messages) {
+        store.updateMessages(appId, messages);
+    }
+
+    /**
      * 混合 token 估算：优先用 API 精确基准 + 增量估算，无历史数据时降级到纯字符估算。
      */
     private int estimateCurrentTokens(List<ChatMessage> messages) {
@@ -126,6 +136,7 @@ public class CompressibleChatMemory implements dev.langchain4j.memory.ChatMemory
         }
 
         // API 基准 + 新增消息的字符估算
+        //delta 指的是：从上一次 token 统计快照之后，新追加到 memory 里的消息列表。
         List<ChatMessage> delta = messages.subList(snapshotMsgCount, currentMsgCount);
         int deltaTokens = TokenEstimator.estimateTokens(delta);
         return (int) snapshot.inputTokens() + deltaTokens;
@@ -193,28 +204,5 @@ public class CompressibleChatMemory implements dev.langchain4j.memory.ChatMemory
         }
     }
 
-    /**
-     * 清理孤立的工具调用结果：如果 AiMessage 的 tool_calls 没有对应的 ToolExecutionResultMessage，
-     * 则移除该 AiMessage 避免 API 报错。
-     * 逻辑复用自 CodingAgentServiceFactory.sanitizeMemory()
-     */
-    private void cleanOrphanedToolResults(List<ChatMessage> messages) {
-        if (messages.isEmpty()) return;
-        ChatMessage last = messages.getLast();
-        if (!(last instanceof AiMessage ai) || !ai.hasToolExecutionRequests()) return;
 
-        Set<String> callIds = ai.toolExecutionRequests().stream()
-                .map(r -> r.id())
-                .collect(Collectors.toSet());
-
-        int aiIdx = messages.size() - 1;
-        for (int j = aiIdx + 1; j < messages.size(); j++) {
-            if (messages.get(j) instanceof ToolExecutionResultMessage res) {
-                callIds.remove(res.id());
-            }
-        }
-
-        // 最后一条是带 tool_calls 的 AiMessage 但缺少对应结果 → 正常情况，工具正在执行
-        // 不需要清理，LangChain4j 会在工具执行后补上 ToolExecutionResultMessage
-    }
 }
