@@ -4,6 +4,8 @@ import cn.hutool.core.bean.BeanUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.yzy.ai.context.CompressibleChatMemory;
+import com.yzy.ai.context.TokenEstimator;
 import com.yzy.dto.ChatHistoryAddRequest;
 import com.yzy.dto.ChatHistoryQueryRequest;
 import com.yzy.entity.App;
@@ -17,6 +19,7 @@ import com.yzy.mapper.ChatHistoryMapper;
 import com.yzy.service.ChatHistoryService;
 import com.yzy.vo.ChatHistoryVO;
 import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.ChatMemory;
 import jakarta.annotation.Resource;
@@ -189,31 +192,77 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
         return voList;
     }
 
+    /**
+     * 基于 token 预算从数据库加载对话历史到记忆中。
+     * <p>
+     * 策略：从 MySQL 按时间倒序分批查询（每批 50 条），逐条累加 token 估算值，
+     * 达到预算上限或消息数硬上限（100 条）时停止，然后反转为时间升序写入记忆。
+     * <p>
+     * 对 CompressibleChatMemory 使用 replaceAll 一次性写入，
+     * 避免逐条 add 造成 N 次 Redis 写入。
+     */
     @Override
-    public int loadChatHistory(Long appId, ChatMemory memory, int maxCnt) {
-        QueryWrapper queryWrapper = QueryWrapper.create()
-                .eq(ChatHistory::getAppId, appId)
-                .orderBy(ChatHistory::getCreateTime, false)
-                //DESC排序跳过第一条（最新消息），取前maxCnt条历史
-                .limit(1, maxCnt);
-        List<ChatHistory> list = list(queryWrapper);
-        if (list == null || list.isEmpty()) {
-            return 0;
-        }
-        //还原为时间升序，再加入memory保证对话时序正确
-        Collections.reverse(list);
-        int loadCnt = 0;
-        //先清记忆缓存避免重复
-        memory.clear();
-        for (ChatHistory chatHistory : list) {
-            if(chatHistory.getMessageType().equals(MessageTypeEnum.USER.getValue())){
-                memory.add(UserMessage.from(chatHistory.getMessage()));
-            }else {
-                memory.add(AiMessage.from(chatHistory.getMessage()));
+    public int loadChatHistory(Long appId, ChatMemory memory, int tokenBudget) {
+        int batchSize = 50;
+        // 跳过最新一条（正在处理的当前消息）
+        int offset = 1;
+        // 消息数硬上限，与 CompressibleChatMemory.MAX_STORED_MESSAGES 对齐
+        int maxMessages = 100;
+        List<ChatHistory> selected = new ArrayList<>();
+        int accumulatedTokens = 0;
+        boolean budgetExhausted = false;
+
+        // 分批加载，逐条累加 token 直到预算用完
+        while (!budgetExhausted && selected.size() < maxMessages) {
+            QueryWrapper queryWrapper = QueryWrapper.create()
+                    .eq(ChatHistory::getAppId, appId)
+                    .orderBy(ChatHistory::getCreateTime, false)
+                    .limit(offset, batchSize);
+            List<ChatHistory> batch = list(queryWrapper);
+            if (batch == null || batch.isEmpty()) break;
+
+            for (ChatHistory h : batch) {
+                int msgTokens = TokenEstimator.estimateTokens(h.getMessage());
+                if (accumulatedTokens + msgTokens > tokenBudget) {
+                    budgetExhausted = true;
+                    break;
+                }
+                selected.add(h);
+                accumulatedTokens += msgTokens;
+                if (selected.size() >= maxMessages) break;
             }
-            loadCnt++;
+
+            offset += batchSize;
+            // 本批不满说明没有更多数据
+            if (batch.size() < batchSize) break;
         }
-        return loadCnt;
+
+        if (selected.isEmpty()) return 0;
+
+        // 还原为时间升序，保证对话时序正确
+        Collections.reverse(selected);
+
+        // 构建 LangChain4j 消息列表
+        List<ChatMessage> messages = new ArrayList<>(selected.size());
+        for (ChatHistory h : selected) {
+            if (h.getMessageType().equals(MessageTypeEnum.USER.getValue())) {
+                messages.add(UserMessage.from(h.getMessage()));
+            } else {
+                messages.add(AiMessage.from(h.getMessage()));
+            }
+        }
+
+        // CompressibleChatMemory 走 replaceAll 一次性写入 Redis，其他类型逐条 add
+        memory.clear();
+        if (memory instanceof CompressibleChatMemory compressible) {
+            compressible.replaceAll(messages);
+        } else {
+            for (ChatMessage msg : messages) {
+                memory.add(msg);
+            }
+        }
+
+        return selected.size();
     }
 }
 

@@ -62,12 +62,16 @@ public interface ChatHistoryService extends IService<ChatHistory> {
     Long saveChatHistory(Long appId, Long userId, String message, String messageType);
 
     /**
-     * 加载数据库对话历史到记忆中
-     * @param appId 应用id
-     * @param memory 对话记忆
-     * @param maxCnt 每次最大可加载条数
-     * @return 历史对话条数
+     * 基于 token 预算从数据库加载对话历史到记忆中。
+     * <p>
+     * 从最新消息向前逐批加载，累计 token 直到达到预算上限，
+     * 相比固定条数加载，能根据消息实际长度自适应加载数量。
+     *
+     * @param appId       应用id
+     * @param memory      对话记忆
+     * @param tokenBudget 本次加载的 token 预算上限
+     * @return 实际加载的历史对话条数
      */
-    int loadChatHistory(Long appId, ChatMemory memory, int maxCnt);
+    int loadChatHistory(Long appId, ChatMemory memory, int tokenBudget);
 
 }

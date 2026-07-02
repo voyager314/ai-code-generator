@@ -25,7 +25,7 @@ function getLanguage(filename: string) {
   return 'text';
 }
 
-function FileTreeNode({ node, style, dragHandle }: NodeRendererProps<FileTreeNode>) {
+function FileTreeNodeRenderer({ node, style, dragHandle }: NodeRendererProps<FileTreeNode>) {
   const isFolder = node.data.type === 'directory';
   const icon = isFolder ? (node.isOpen ? '📂' : '📁') : '📄';
 
@@ -76,11 +76,21 @@ export default function CodeViewer({ appId }: CodeViewerProps) {
     };
   }, []);
 
+  const addIds = (nodes: FileTreeNode[], parentPath = ''): FileTreeNode[] =>
+    nodes.map((node) => {
+      const fullPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+      return {
+        ...node,
+        id: node.path || fullPath,
+        children: node.children ? addIds(node.children, fullPath) : undefined,
+      };
+    });
+
   const loadFileTree = async () => {
     try {
       const res = await appApi.getFileTree(appId);
       if (res.data?.children) {
-        setTreeData(res.data.children);
+        setTreeData(addIds(res.data.children));
       }
     } catch (err: any) {
       console.error('加载文件树失败:', err);
@@ -145,7 +155,7 @@ export default function CodeViewer({ appId }: CodeViewerProps) {
               rowHeight={28}
               onSelect={(nodes) => nodes[0] && handleFileClick(nodes[0].data)}
             >
-              {FileTreeNode}
+              {FileTreeNodeRenderer}
             </Tree>
           )}
         </div>

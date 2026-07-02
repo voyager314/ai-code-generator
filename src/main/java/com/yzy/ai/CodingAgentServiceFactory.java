@@ -96,7 +96,9 @@ public class CodingAgentServiceFactory {
                 appId, redisChatMemoryStore, compressionProperties, tokenTracker, toolOutputArchiver,
                 contextSummarizer);
 
-        chatHistoryService.loadChatHistory(appId, memory, 30);
+        // 加载预算 = effectiveBudget × 60%，恰好在 SNIP 阈值以下，留 40% 给当前轮对话和 system prompt
+        int loadBudget = (int) (compressionProperties.getEffectiveBudget() * 0.6);
+        chatHistoryService.loadChatHistory(appId, memory, loadBudget);
         memoryRegistry.put(appId, memory);
 
         return AiServices.builder(CodingAgentService.class)

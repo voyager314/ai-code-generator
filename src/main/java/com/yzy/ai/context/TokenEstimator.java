@@ -1,6 +1,7 @@
 package com.yzy.ai.context;
 
 import dev.langchain4j.data.message.*;
+import lombok.Getter;
 
 import java.util.List;
 
@@ -12,6 +13,7 @@ import java.util.List;
  */
 public final class TokenEstimator {
 
+    @Getter
     private static volatile double charsPerToken = 3.5;
 
     private TokenEstimator() {}
@@ -37,10 +39,6 @@ public final class TokenEstimator {
         if (apiTokenCount <= 0 || charCount <= 0) return;
         double measured = (double) charCount / apiTokenCount;
         charsPerToken = charsPerToken * 0.7 + measured * 0.3;
-    }
-
-    public static double getCharsPerToken() {
-        return charsPerToken;
     }
 
     /**

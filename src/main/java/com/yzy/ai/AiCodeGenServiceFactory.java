@@ -2,6 +2,7 @@ package com.yzy.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.yzy.ai.context.ContextCompressionProperties;
 import com.yzy.ai.guardrail.PromptInputGuardRail;
 import com.yzy.ai.model.CodeGenTypeEnum;
 import com.yzy.ai.tools.*;
@@ -42,6 +43,9 @@ public class AiCodeGenServiceFactory {
     @Autowired
     private ToolManager toolManager;
 
+    @Autowired
+    private ContextCompressionProperties compressionProperties;
+
     //caffeine本地缓存每个应用的AiCodeGenService实例
     private final Cache<String,AiCodeGenService> aiCodeGenServiceCache = Caffeine.newBuilder()
             .maximumSize(1000)
@@ -64,7 +68,9 @@ public class AiCodeGenServiceFactory {
         log.info("创建appId:{}的AiCodeGenService实例", appId);
 
         //创建服务实例时从数据库加载对话历史到redis缓存
-        chatHistoryService.loadChatHistory(appId,memory,20);
+        // 加载预算 = effectiveBudget × 60%，留 40% 给当前轮对话和 system prompt
+        int loadBudget = (int) (compressionProperties.getEffectiveBudget() * 0.6);
+        chatHistoryService.loadChatHistory(appId, memory, loadBudget);
 
         if(codeGenType.equals(CodeGenTypeEnum.VUE_PROJECT)){
             return AiServices.builder(AiCodeGenService.class)

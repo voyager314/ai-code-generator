@@ -179,6 +179,7 @@ export interface AgentEvent {
 // ─── File tree ───────────────────────────────────────────────────────────────
 
 export interface FileTreeNode {
+  id?: string;
   name: string;
   type: 'file' | 'directory';
   path?: string;

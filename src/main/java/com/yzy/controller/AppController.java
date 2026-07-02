@@ -307,8 +307,8 @@ public class AppController {
      * @return 文件树
      */
     @GetMapping("/files/{appId}")
-    public BaseResponse<com.yzy.dto.FileTreeNode> getAppFileTree(@PathVariable Long appId) {
-        com.yzy.dto.FileTreeNode tree = appService.getFileTree(appId);
+    public BaseResponse<FileTreeNode> getAppFileTree(@PathVariable Long appId) {
+        FileTreeNode tree = appService.getFileTree(appId);
         return ResultUtil.success(tree);
     }
 

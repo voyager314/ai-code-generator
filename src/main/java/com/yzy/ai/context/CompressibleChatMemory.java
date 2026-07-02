@@ -106,6 +106,7 @@ public class CompressibleChatMemory implements ChatMemory {
                 tier = CompressionTier.fromRatio(ratio, config.getTiers());
                 protectionStart = findProtectionZoneStart(messages);
                 if (tier == CompressionTier.SUMMARIZE) {
+                    //仍然是SUMMARIZE，再次SUMMARIZE没意义（消息没变），直接截断
                     tier = CompressionTier.PRUNE;
                 }
                 if (tier == CompressionTier.NONE) {
