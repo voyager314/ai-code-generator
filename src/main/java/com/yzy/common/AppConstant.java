@@ -18,6 +18,8 @@ public interface AppConstant {
      */
     String IMG_DIR=System.getProperty("user.dir")+ File.separator+"temp"+File.separator+"img";
 
+    String FILE_DIR=System.getProperty("user.dir")+ File.separator+"temp"+File.separator+"files";
+
     /**
      * 工具输出归档子目录名（位于各工作区根目录下）
      */

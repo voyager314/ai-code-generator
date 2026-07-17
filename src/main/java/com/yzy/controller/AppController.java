@@ -15,6 +15,7 @@ import com.yzy.entity.User;
 import com.yzy.exception.BusinessException;
 import com.yzy.exception.ErrorCode;
 import com.yzy.exception.ThrowUtil;
+import com.yzy.manager.AliOSSManager;
 import com.yzy.service.AppService;
 import com.yzy.service.ChatHistoryService;
 import com.yzy.service.ProjectDownLoadService;
@@ -27,11 +28,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.File;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 应用 控制层。
@@ -60,6 +63,9 @@ public class AppController {
 
     @Autowired
     private ProjectDownLoadService projectDownLoadService;
+
+    @Autowired
+    private AliOSSManager uoloadManager;
 
     /**
      * 创建应用
@@ -202,13 +208,34 @@ public class AppController {
     @RateLimit(key="rate_limit",message = "AI对话请求过于频繁，请稍后重试")
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId, @RequestParam String msg,
                                                        HttpServletRequest request,
-                                                       @RequestParam(defaultValue = "false") boolean agent) {
+                                                       @RequestParam(value = "file",required = false) MultipartFile[] files,
+                                                       @RequestParam(defaultValue = "true") boolean agent) {
         Object user = request.getSession().getAttribute("USER_LOGIN_STATE");
         ThrowUtil.throwIf(user==null, ErrorCode.NOT_LOGIN_ERROR);
         User loginUser = (User) user;
 
         // 保存用户消息到对话历史
         chatHistoryService.saveChatHistory(appId, loginUser.getId(), msg, "user");
+        if(files != null && files.length > 0) {
+            try {
+                StringBuilder sb=new StringBuilder();
+                sb.append(msg).append("\n\n参考文件: \n");
+                String path=AppConstant.FILE_DIR+File.separator+loginUser.getId()+File.separator+appId;
+                File fileDir = new File(path);
+                if(!fileDir.exists()) {fileDir.mkdirs();}
+                for(MultipartFile file : files) {
+                    String originalFilename = file.getOriginalFilename();
+                    String newFilename = UUID.randomUUID().toString()+originalFilename.substring(originalFilename.lastIndexOf("."));
+                    File file1 = new File(fileDir, newFilename);
+                    file.transferTo(file1);
+                    String url = uoloadManager.upload(file1.getAbsolutePath());
+                    sb.append(url).append("\n");
+                }
+                msg=sb.toString();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
 
         Flux<String> stringFlux = appService.chatToGenCode(appId, msg, loginUser,agent);
 

@@ -30,10 +30,9 @@ frontend/.env
 frontend/node_modules/
 frontend/dist/
 frontend/.env.local
-wise-code-plan.md
+!.claude/settings.local.json
+
 API.md
-voyger314_contributions.md
-voyger314_contributions-1.md
 context-compression-plan.md
 ### NetBeans ###
 /nbproject/private/
