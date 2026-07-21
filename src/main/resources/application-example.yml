@@ -71,9 +71,13 @@ agent:
     enabled: true
     max-retries: 2
     max-snapshot-chars: 60000
-# 部署路径
+# docker部署
 code:
-  deploy-host: http://your-server-ip/dist
+  deploy-host: http://localhost
+  docker:
+    port-range-start: 10000
+    port-range-end: 20000
+    container-expire-hours: 72
 
 # 上下文压缩配置
 context-compression:

@@ -18,7 +18,6 @@ import com.yzy.ai.handler.StreamHandlerExecutor;
 import com.yzy.ai.model.*;
 import com.yzy.ai.reflection.AgentReflectionProperties;
 import com.yzy.ai.reflection.AgentReflectionService;
-import com.yzy.ai.tools.PackageManagerDetector;
 import com.yzy.ai.tools.WorkspaceResolver;
 import com.yzy.common.AppConstant;
 import com.yzy.dto.*;
@@ -34,6 +33,7 @@ import com.yzy.monitor.MonitorContext;
 import com.yzy.monitor.MonitorContextHolder;
 import com.yzy.service.AppService;
 import com.yzy.service.ChatHistoryService;
+import com.yzy.service.DockerDeployService;
 import com.yzy.util.WebScreenShotUtil;
 import com.yzy.vo.AppDetailVO;
 import com.yzy.vo.AppVO;
@@ -48,14 +48,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -98,7 +95,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     private AgentReflectionProperties reflectionProperties;
 
     @Autowired
-    private PackageManagerDetector packageManagerDetector;
+    private DockerDeployService dockerDeployService;
 
     @Value("${code.deploy-host}")
     private String DEPLOY_HOST;
@@ -530,113 +527,34 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         App app = getById(appId);
         ThrowUtil.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在！");
 
-        String codeGenType = app.getCodeGenType();
         String deployKey = StrUtil.isBlank(app.getDeployKey()) ? RandomUtil.randomString(6) : app.getDeployKey();
-
-        // 支持agent模式和传统模式的目录解析
-        File outputDir = resolveOutputDir(appId, codeGenType);
-        if (!outputDir.exists() || !outputDir.isDirectory()) {
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "应用未生成，请先生成代码！");
-        }
-
-        // Node项目需构建后部署dist产物，否则直接部署源码
-        boolean nodeProject = isNodeProject(outputDir);
-        File deploySource = nodeProject ? buildAndGetDist(outputDir) : outputDir;
-        codeGenType=nodeProject?"default":codeGenType;
-        String deployPath = AppConstant.DEPLOY_DIR + File.separator + codeGenType + "_" + deployKey;
-        FileUtil.copyContent(deploySource, new File(deployPath), true);
 
         App update = new App();
         update.setId(appId);
-        update.setDeployedTime(LocalDateTime.now());
         update.setDeployKey(deployKey);
+        update.setDeployedTime(LocalDateTime.now());
         updateById(update);
 
-        String webUrl = String.format("%s/%s_%s/", DEPLOY_HOST, codeGenType, deployKey);
+        app.setDeployKey(deployKey);
+        String webUrl = dockerDeployService.deploy(app);
+
         new Thread(() -> {
-            String filePath = WebScreenShotUtil.getScreenShot(webUrl);
-            String coverUrl = aliOSSManager.upload(filePath);
-            update.setCover(coverUrl);
-            updateById(update);
+            try {
+                Thread.sleep(3000);
+                String filePath = WebScreenShotUtil.getScreenShot(webUrl);
+                String coverUrl = aliOSSManager.upload(filePath);
+                App coverUpdate = new App();
+                coverUpdate.setId(appId);
+                coverUpdate.setCover(coverUrl);
+                updateById(coverUpdate);
+            } catch (Exception e) {
+                log.error("截图或上传封面失败, appId={}", appId, e);
+            }
         }).start();
 
         return webUrl;
     }
 
-    /**
-     * 解析输出目录：优先agent_xxx，否则回退到传统路径
-     */
-    private File resolveOutputDir(Long appId, String codeGenType) {
-        File agentDir = new File(AppConstant.OUTPUT_DIR, "agent_" + appId);
-        if (agentDir.exists()) return agentDir;
-
-        String legacyPath = codeGenType.equals("vue_project")
-            ? "vue_project_" + appId
-            : codeGenType + "_" + appId;
-        return new File(AppConstant.OUTPUT_DIR, legacyPath);
-    }
-
-    /**
-     * 检测是否为Node项目
-     */
-    private boolean isNodeProject(File dir) {
-        return new File(dir, "package.json").exists();
-    }
-
-    /**
-     * 构建Node项目并返回dist产物目录，失败重试3次
-     */
-    private File buildAndGetDist(File projectDir) {
-        for (int attempt = 1; attempt <= 2; attempt++) {
-            try {
-                runCommand(projectDir, packageManagerDetector.detect(projectDir.toPath()).getInstallCommand());
-                runCommand(projectDir, packageManagerDetector.detect(projectDir.toPath()).getRunPrefix() + " build");
-
-                File distDir = detectDistDir(projectDir);
-                if (distDir != null) return distDir;
-
-                if (attempt == 2) throw new BusinessException(ErrorCode.OPERATION_ERROR, "构建产物目录未找到");
-            } catch (Exception e) {
-                log.error("构建失败 (attempt {}/3): {}", attempt, e.getMessage());
-                if (attempt == 2) throw new BusinessException(ErrorCode.OPERATION_ERROR, "构建失败: " + e.getMessage());
-            }
-        }
-        throw new BusinessException(ErrorCode.OPERATION_ERROR, "构建失败");
-    }
-
-    /**
-     * 检测构建产物目录：dist/build/out/.next
-     */
-    private File detectDistDir(File projectDir) {
-        for (String name : new String[]{"dist", "build", "out"}) {
-            File dir = new File(projectDir, name);
-            if (dir.exists() && dir.isDirectory()) return dir;
-        }
-        return null;
-    }
-
-    /**
-     * 执行命令，超时1200秒
-     */
-    private void runCommand(File workDir, String command) throws Exception {
-        ProcessBuilder pb = System.getProperty("os.name").toLowerCase().contains("win")
-            ? new ProcessBuilder("cmd", "/c", command)
-            : new ProcessBuilder("sh", "-c", command);
-        pb.directory(workDir).redirectErrorStream(true);
-
-        Process process = pb.start();
-        StringBuilder output = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) output.append(line).append("\n");
-        }
-
-        if (!process.waitFor(1200, TimeUnit.SECONDS)) {
-            process.destroyForcibly();
-            throw new Exception("命令超时");
-        }
-        if (process.exitValue() != 0) throw new Exception("命令失败: " + output);
-    }
 
     @Override
     public FileTreeNode getFileTree(Long appId) {

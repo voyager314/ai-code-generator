@@ -51,7 +51,9 @@
       "mcp__tavily__tavily_extract",
       "Bash(xargs grep -l \"AiServices\\\\|@ToolMethod\")",
       "Bash(xargs grep -l \"streaming\\\\|SSE\\\\|Flux\\\\|stream\")",
-      "Bash(xargs grep -l \"ChatHistory\\\\|ChatMemory\\\\|compress\")"
+      "Bash(xargs grep -l \"ChatHistory\\\\|ChatMemory\\\\|compress\")",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_file_upload"
     ]
   }
 }

@@ -14,7 +14,7 @@ function SidebarIcon({ name }: { name: 'collapse' | 'expand' | 'search' | 'plus'
     logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
     admin: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z',
     delete: 'M3 6h18M8 6V4h8v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6',
-    send: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z'
+    send: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z',
   };
 
   return (
@@ -33,12 +33,13 @@ export default function Home() {
   const [search, setSearch] = useState('');
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [agentMode, setAgentMode] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
 
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadApps();
@@ -66,7 +67,7 @@ export default function Home() {
         initPrompt: prompt,
         appName: `应用_${Date.now()}`,
       });
-      navigate(`/app/${res.data}`, { state: { initMsg: prompt, agentMode } });
+      navigate(`/app/${res.data}`, { state: { initMsg: prompt, initFiles: files.length > 0 ? files : undefined } });
     } catch (err: any) {
       alert(err.message || '创建失败');
       setLoading(false);
@@ -97,50 +98,47 @@ export default function Home() {
 
   const sidebar = (
     <aside
-      className={`flex h-full flex-col bg-[#171717] transition-all duration-300 ${
+      className={`flex h-full flex-col bg-background transition-all duration-300 ${
         collapsed ? 'w-[68px]' : 'w-[260px]'
       }`}
     >
-      {/* Header - Collapse/Expand */}
       <div className="flex items-center justify-end px-3 pt-3 pb-2">
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-[#b4b4b8] hover:bg-[#212121] hover:text-[#ececec] transition-colors"
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           aria-label={collapsed ? '展开侧边栏' : '收起侧边栏'}
         >
           <SidebarIcon name={collapsed ? 'expand' : 'collapse'} />
         </button>
       </div>
 
-      {/* Search */}
       {!collapsed && (
         <div className="px-3 pb-3">
-          <div className="relative flex items-center h-10 rounded-lg hover:bg-[#212121] transition-colors cursor-pointer text-[#ececec]">
-            <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#b4b4b8]">
+          <div className="relative flex items-center h-10 rounded-xl hover:bg-accent transition-colors cursor-pointer text-foreground">
+            <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
               <SidebarIcon name="search" />
             </div>
             <input
               type="text"
-              placeholder="搜索聊天"
+              placeholder="搜索应用"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-full w-full bg-transparent pl-9 pr-3 text-sm text-[#ececec] placeholder:text-[#b4b4b8] outline-none"
+              className="h-full w-full bg-transparent pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none"
             />
           </div>
         </div>
       )}
 
-      {/* App List */}
       <div className="flex-1 overflow-y-auto px-2">
         {!collapsed && (
-          <div className="px-2 pb-2 pt-2 text-[12px] font-semibold text-[#8e8e93]">
+          <div className="px-2 pb-2 pt-2 text-[12px] font-semibold text-muted-foreground">
             最近
           </div>
         )}
         <div className="space-y-0.5">
           {filteredApps.length === 0 ? (
             !collapsed && (
-              <div className="px-2 py-6 text-center text-xs text-[#8e8e93]">
+              <div className="px-2 py-6 text-center text-xs text-muted-foreground">
                 {search ? '没有匹配的应用' : '暂无应用'}
               </div>
             )
@@ -149,19 +147,19 @@ export default function Home() {
               <div
                 key={app.id}
                 onClick={() => navigate(`/app/${app.id}`)}
-                className={`group flex h-10 items-center gap-2.5 rounded-lg px-2.5 cursor-pointer transition-colors hover:bg-[#212121] ${
+                className={`group flex h-10 items-center gap-2.5 rounded-xl px-2.5 cursor-pointer transition-colors hover:bg-accent ${
                   collapsed ? 'justify-center' : ''
                 }`}
               >
                 {!collapsed && (
                   <>
-                    <span className="flex-1 truncate text-sm text-[#ececec]">
+                    <span className="flex-1 truncate text-sm text-foreground">
                       {app.appName || `应用 ${app.id}`}
                     </span>
                     <button
                       onClick={(e) => handleDeleteApp(e, app.id)}
                       disabled={deletingId === app.id}
-                      className="hidden shrink-0 rounded p-1 text-[#8e8e93] transition-colors hover:bg-[#333333] hover:text-[#ececec] group-hover:flex disabled:opacity-40"
+                      className="hidden shrink-0 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground group-hover:flex disabled:opacity-40"
                       aria-label="删除应用"
                     >
                       <SidebarIcon name="delete" />
@@ -169,7 +167,7 @@ export default function Home() {
                   </>
                 )}
                 {collapsed && (
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center text-[#8e8e93]">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground">
                     <SidebarIcon name="chat" />
                   </div>
                 )}
@@ -179,10 +177,9 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Bottom: User Info */}
       <div className="p-3">
         <div
-          className={`flex h-12 items-center gap-2.5 rounded-lg px-2.5 ${
+          className={`flex h-12 items-center gap-2.5 rounded-xl px-2.5 ${
             collapsed ? 'justify-center' : ''
           }`}
         >
@@ -201,11 +198,11 @@ export default function Home() {
           </svg>
           {!collapsed && (
             <>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#ececec]">{userAccount}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{userAccount}</span>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#b4b4b8] transition-colors hover:bg-[#212121] hover:text-[#ececec]"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 aria-label="Logout"
               >
                 <SidebarIcon name="logout" />
@@ -218,8 +215,7 @@ export default function Home() {
   );
 
   return (
-    <div className="flex h-dvh bg-[#212121] text-[#ececec]">
-      {/* Mobile overlay */}
+    <div className="flex h-dvh bg-card text-foreground">
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
@@ -227,10 +223,8 @@ export default function Home() {
         />
       )}
 
-      {/* Sidebar — desktop */}
       <div className="hidden lg:flex h-full">{sidebar}</div>
 
-      {/* Sidebar — mobile drawer */}
       <div
         className={`fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-300 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
@@ -239,84 +233,79 @@ export default function Home() {
         {sidebar}
       </div>
 
-      {/* Main Content */}
       <main className="flex flex-1 flex-col min-w-0 relative">
-        {/* Top Bar for Mobile */}
         <header className="flex items-center justify-between px-4 py-3 lg:hidden absolute top-0 left-0 right-0 z-10">
           <button
             onClick={() => setMobileOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-[#ececec] hover:bg-[#2f2f2f]"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-foreground hover:bg-accent"
             aria-label="打开菜单"
           >
             <SidebarIcon name="expand" />
           </button>
         </header>
 
-        {/* Center Content */}
         <div className="flex flex-1 flex-col items-center justify-center px-4 pb-8 w-full max-w-3xl mx-auto">
-          {/* Greeting */}
           <div className="mb-8 text-center w-full">
-            <h1 className="text-3xl font-semibold text-[#ececec] sm:text-4xl tracking-tight">
+            <h1 className="text-3xl font-semibold text-foreground sm:text-4xl tracking-tight">
               有什么可以帮忙的
             </h1>
           </div>
 
-          {/* Input Bar */}
-          <div className="w-full rounded-2xl bg-[#2f2f2f] shadow-sm transition-colors focus-within:bg-[#333333]">
-            <textarea
+          {files.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5 w-full max-w-3xl mx-auto px-2">
+              {files.map((file, i) => (
+                <span key={i} className="flex items-center gap-1 rounded-lg bg-secondary px-2 py-1 text-xs text-foreground">
+                  <span className="max-w-[120px] truncate">{file.name}</span>
+                  <button onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))} className="ml-0.5 text-muted-foreground hover:text-foreground">
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { const selected = Array.from(e.target.files || []); if (selected.length > 0) setFiles((prev) => [...prev, ...selected]); e.target.value = ''; }} />
+          <div className="flex w-full items-center gap-3 rounded-full bg-secondary px-2 py-2 transition-colors focus-within:bg-accent">
+            <button
+              type="button"
+              disabled={loading}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-50"
+              aria-label="上传文件"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <input
               ref={inputRef}
-              placeholder="有问题，尽管问"
+              type="text"
+              placeholder="描述你想生成的应用"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                   handleSend();
                 }
               }}
               disabled={loading}
-              rows={1}
-              className="block w-full resize-none bg-transparent px-5 pt-4 pb-2 text-[15px] text-[#ececec] placeholder:text-[#8e8e93] outline-none disabled:opacity-50"
-              style={{ minHeight: '52px', maxHeight: '200px' }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = 'auto';
-                target.style.height = Math.min(target.scrollHeight, 200) + 'px';
-              }}
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-50"
             />
-            <div className="flex items-center justify-between px-3 pb-3 pt-1">
-              <button
-                type="button"
-                onClick={() => setAgentMode((v) => !v)}
-                disabled={loading}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
-                  agentMode
-                    ? 'border-indigo-500 bg-[#3a3a3a] text-indigo-400'
-                    : 'border-transparent bg-transparent text-[#b4b4b8] hover:bg-[#404040] hover:text-[#ececec]'
-                }`}
-              >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-                  <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M9 21h6M10 17v4M14 17v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            <button
+              onClick={handleSend}
+              disabled={loading || !input.trim()}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-all hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="发送"
+            >
+              {loading ? (
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" opacity="0.3" />
+                  <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
                 </svg>
-                深度思考
-              </button>
-              <button
-                onClick={handleSend}
-                disabled={loading || !input.trim()}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black transition-all hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
-                aria-label="发送"
-              >
-                {loading ? (
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" opacity="0.3" />
-                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                  </svg>
-                ) : (
-                  <SidebarIcon name="send" />
-                )}
-              </button>
-            </div>
+              ) : (
+                <SidebarIcon name="send" />
+              )}
+            </button>
           </div>
         </div>
       </main>

@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    base: mode === 'production' ? '/api/' : '/',
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

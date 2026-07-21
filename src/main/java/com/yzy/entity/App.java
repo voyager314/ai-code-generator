@@ -72,6 +72,12 @@ public class App implements Serializable {
     private LocalDateTime deployedTime;
 
     /**
+     * Docker部署端口
+     */
+    @Column("deployPort")
+    private Integer deployPort;
+
+    /**
      * 优先级
      */
     private Integer priority;

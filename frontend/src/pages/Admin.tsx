@@ -1,12 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { userApi } from '@/api';
 import type { UserVO, UserAddRequest } from '@/types';
-
-// ─── AddUserDialog ────────────────────────────────────────────────────────────
 
 function AddUserDialog({
   onClose,
@@ -38,66 +33,68 @@ function AddUserDialog({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <Card className="w-full max-w-sm mx-4">
-        <CardHeader>
-          <CardTitle>新增用户</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <Input
-              placeholder="账号（必填）"
-              value={form.userAccount}
-              onChange={(e) => setForm({ ...form, userAccount: e.target.value })}
-              required
-            />
-            <Input
-              placeholder="昵称（可选）"
-              value={form.userName ?? ''}
-              onChange={(e) => setForm({ ...form, userName: e.target.value })}
-            />
-            <select
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={form.userRole}
-              onChange={(e) =>
-                setForm({ ...form, userRole: e.target.value as 'user' | 'admin' })
-              }
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="w-full max-w-sm mx-4 rounded-xl border border-border bg-card p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4">新增用户</h3>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            placeholder="账号（必填）"
+            value={form.userAccount}
+            onChange={(e) => setForm({ ...form, userAccount: e.target.value })}
+            required
+            className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <input
+            placeholder="昵称（可选）"
+            value={form.userName ?? ''}
+            onChange={(e) => setForm({ ...form, userName: e.target.value })}
+            className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <select
+            className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            value={form.userRole}
+            onChange={(e) =>
+              setForm({ ...form, userRole: e.target.value as 'user' | 'admin' })
+            }
+          >
+            <option value="user">普通用户</option>
+            <option value="admin">管理员</option>
+          </select>
+          <p className="text-xs text-muted-foreground">默认密码：123456</p>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
             >
-              <option value="user">普通用户</option>
-              <option value="admin">管理员</option>
-            </select>
-            <p className="text-xs text-gray-400">默认密码：123456</p>
-            <div className="flex gap-2 pt-1">
-              <Button type="submit" disabled={loading}>
-                {loading ? '创建中...' : '创建'}
-              </Button>
-              <Button type="button" variant="outline" onClick={onClose}>
-                取消
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              {loading ? '创建中...' : '创建'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+            >
+              取消
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
-
-// ─── RoleBadge ────────────────────────────────────────────────────────────────
 
 function RoleBadge({ role }: { role: string }) {
   const isAdmin = role === 'admin';
   return (
     <span
-      className={`inline-block px-2 py-0.5 text-xs rounded font-medium ${
-        isAdmin ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+      className={`inline-block px-2 py-0.5 text-xs rounded-md font-medium ${
+        isAdmin ? 'bg-red-500/20 text-red-400' : 'bg-secondary text-muted-foreground'
       }`}
     >
       {isAdmin ? '管理员' : '普通用户'}
     </span>
   );
 }
-
-// ─── Admin page ───────────────────────────────────────────────────────────────
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -112,7 +109,6 @@ export default function Admin() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      // GET /user/list — admin only, returns full user list
       const res = await userApi.getList();
       setUsers(res.data);
     } catch (err: any) {
@@ -138,7 +134,6 @@ export default function Admin() {
   const handleDelete = async (user: UserVO) => {
     if (!confirm(`确认删除用户「${user.userAccount}」？此操作不可撤销。`)) return;
     try {
-      // DELETE /user/remove/{id}
       await userApi.remove(user.id);
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
     } catch (err: any) {
@@ -147,41 +142,45 @@ export default function Admin() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {showAdd && (
         <AddUserDialog onClose={() => setShowAdd(false)} onCreated={loadUsers} />
       )}
 
-      <header className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold">管理后台</h1>
+      <header className="border-b border-border bg-card px-6 py-4 flex justify-between items-center">
+        <h1 className="text-xl font-bold text-foreground">管理后台</h1>
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => setShowAdd(true)}>
+          <button
+            onClick={() => setShowAdd(true)}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+          >
             新增用户
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            className="rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+          >
             返回
-          </Button>
+          </button>
         </div>
       </header>
 
       <div className="max-w-6xl mx-auto p-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>用户管理</CardTitle>
-              <span className="text-sm text-gray-400">共 {users.length} 人</span>
-            </div>
-          </CardHeader>
-          <CardContent>
+        <div className="rounded-xl border border-border bg-card">
+          <div className="flex items-center justify-between p-6 border-b border-border">
+            <h3 className="text-lg font-semibold text-foreground">用户管理</h3>
+            <span className="text-sm text-muted-foreground">共 {users.length} 人</span>
+          </div>
+          <div className="p-6">
             {loading ? (
-              <div className="text-center py-10 text-gray-400">加载中...</div>
+              <div className="text-center py-10 text-muted-foreground">加载中...</div>
             ) : users.length === 0 ? (
-              <div className="text-center py-10 text-gray-400">暂无用户</div>
+              <div className="text-center py-10 text-muted-foreground">暂无用户</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b text-left text-gray-500">
+                    <tr className="border-b border-border text-left text-muted-foreground">
                       <th className="py-3 px-4 font-medium">ID</th>
                       <th className="py-3 px-4 font-medium">账号</th>
                       <th className="py-3 px-4 font-medium">昵称</th>
@@ -192,32 +191,30 @@ export default function Admin() {
                   </thead>
                   <tbody>
                     {users.map((user) => (
-                      <tr key={user.id} className="border-b hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 text-gray-400">{user.id}</td>
-                        <td className="py-3 px-4 font-medium">{user.userAccount}</td>
-                        <td className="py-3 px-4 text-gray-500">{user.userName || '—'}</td>
+                      <tr key={user.id} className="border-b border-border hover:bg-accent/50 transition-colors">
+                        <td className="py-3 px-4 text-muted-foreground">{user.id}</td>
+                        <td className="py-3 px-4 font-medium text-foreground">{user.userAccount}</td>
+                        <td className="py-3 px-4 text-muted-foreground">{user.userName || '—'}</td>
                         <td className="py-3 px-4">
                           <RoleBadge role={user.userRole} />
                         </td>
-                        <td className="py-3 px-4 text-gray-400">
+                        <td className="py-3 px-4 text-muted-foreground">
                           {user.createTime?.split('T')[0] ?? '—'}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
+                            <button
                               onClick={() => handleToggleRole(user)}
+                              className="rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
                             >
                               切换角色
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
+                            </button>
+                            <button
                               onClick={() => handleDelete(user)}
+                              className="rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/80"
                             >
                               删除
-                            </Button>
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -226,8 +223,8 @@ export default function Admin() {
                 </table>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

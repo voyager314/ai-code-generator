@@ -11,8 +11,9 @@ interface ApiResponse<T = unknown> {
 
 function redirectToLogin() {
   useUserStore.getState().setUser(null);
-  if (window.location.pathname !== '/login') {
-    window.location.replace('/login');
+  const loginPath = import.meta.env.BASE_URL + 'login';
+  if (window.location.pathname !== loginPath) {
+    window.location.replace(loginPath);
   }
 }
 

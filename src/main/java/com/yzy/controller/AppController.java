@@ -204,7 +204,7 @@ public class AppController {
      * @param request 请求对象
      * @return 生成结果流
      */
-    @GetMapping(value = "/chat/gen/code",produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping(value = "/chat/gen/code",produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @RateLimit(key="rate_limit",message = "AI对话请求过于频繁，请稍后重试")
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId, @RequestParam String msg,
                                                        HttpServletRequest request,

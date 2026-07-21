@@ -7,7 +7,7 @@ import { useUserStore } from '@/store/user';
 /*  Shared input style                                                 */
 /* ------------------------------------------------------------------ */
 const inputClass =
-  'block w-full h-11 rounded-lg border border-[#333] bg-[#1a1a1a] px-4 text-[14px] text-white placeholder:text-[#888] cursor-text transition-colors duration-200 focus:border-[#555] focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed';
+  'block w-full h-11 rounded-lg border border-border bg-card px-4 text-[14px] text-foreground placeholder:text-muted-foreground cursor-text transition-colors duration-200 focus:border-ring focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed';
 
 /* ------------------------------------------------------------------ */
 /*  Eye icon — shown / hidden                                          */
@@ -114,7 +114,7 @@ export default function Login() {
   /*  Render                       */
   /* ============================ */
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#121212] font-sans antialiased">
+    <main className="flex min-h-screen items-center justify-center bg-background font-sans antialiased">
       <div className="w-full max-w-[400px] px-6">
 
         {/* Logo */}
@@ -134,7 +134,7 @@ export default function Login() {
             <button
               type="button"
               onClick={() => switchMode(!isLogin)}
-              className="ml-1 text-[#aaa] hover:text-white underline underline-offset-4 transition-colors"
+              className="ml-1 text-primary hover:text-primary/80 underline underline-offset-4 transition-colors"
             >
               {isLogin ? '注册.' : '登录.'}
             </button>
@@ -260,7 +260,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="flex h-11 w-full items-center justify-center rounded-full bg-white text-[14px] font-medium text-black transition-all hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-white/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex h-11 w-full items-center justify-center rounded-full bg-primary text-[14px] font-medium text-primary-foreground transition-all hover:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-ring/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? '请稍候…' : isLogin ? '登录' : '创建账户'}
             </button>

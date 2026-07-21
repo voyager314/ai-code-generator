@@ -358,7 +358,7 @@ export default function AppChat() {
         };
         if (error.errorCode === 40100) {
           setUser(null);
-          window.location.replace('/login');
+          window.location.replace(import.meta.env.BASE_URL + 'login');
           return;
         }
         console.error();

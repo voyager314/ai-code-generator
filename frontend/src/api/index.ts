@@ -21,6 +21,66 @@ import type {
   FileTreeNode,
 } from '@/types';
 
+// ─── SSE Stream Reader ──────────────────────────────────────────────────────
+
+export interface SSECallbacks {
+  onMessage: (data: string) => void;
+  onBusinessError: (data: string) => void;
+  onDone: () => void;
+  onError: (err: unknown) => void;
+}
+
+export async function readSSE(response: Response, callbacks: SSECallbacks) {
+  if (!response.body) {
+    callbacks.onError(new Error('Response body is null'));
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let eventType = '';
+  let dataLines: string[] = [];
+
+  const dispatch = () => {
+    if (eventType || dataLines.length) {
+      const data = dataLines.join('\n');
+      if (eventType === 'done') {
+        callbacks.onDone();
+      } else if (eventType === 'business-error') {
+        callbacks.onBusinessError(data);
+      } else if (data) {
+        callbacks.onMessage(data);
+      }
+      eventType = '';
+      dataLines = [];
+    }
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line === '') {
+          dispatch();
+        } else if (line.startsWith('event:')) {
+          eventType = line.slice(6).trim();
+        } else if (line.startsWith('data:')) {
+          dataLines.push(line.slice(5));
+        }
+      }
+    }
+    dispatch();
+  } catch (err) {
+    callbacks.onError(err);
+  }
+}
+
 // ─── User ────────────────────────────────────────────────────────────────────
 
 export const userApi = {
@@ -36,33 +96,24 @@ export const userApi = {
   getLoginUser: () =>
     request.get<any, BaseResponse<UserLoginVO>>('/user/get/login'),
 
-  // ── Admin only ──────────────────────────────────────────────────────────
-
-  /** GET /user/get/vo?id={id} */
   getVO: (id: number) =>
     request.get<any, BaseResponse<UserVO>>('/user/get/vo', { params: { id } }),
 
-  /** GET /user/list — full entity list */
   getList: () =>
     request.get<any, BaseResponse<UserVO[]>>('/user/list'),
 
-  /** GET /user/page?pageNum=&pageSize= */
   getPage: (params: { pageNum: number; pageSize: number }) =>
     request.get<any, BaseResponse<Page<UserVO>>>('/user/page', { params }),
 
-  /** GET /user/list/page/vo — filterable VO page */
   getPageVO: (params: UserQueryRequest) =>
     request.get<any, BaseResponse<Page<UserVO>>>('/user/list/page/vo', { params }),
 
-  /** POST /user/add — default password 123456 */
   add: (data: UserAddRequest) =>
     request.post<any, BaseResponse<number>>('/user/add', data),
 
-  /** POST /user/update */
   update: (data: UserUpdateRequest) =>
     request.post<any, BaseResponse<boolean>>('/user/update', data),
 
-  /** DELETE /user/remove/{id} */
   remove: (id: number) =>
     request.delete<any, BaseResponse<boolean>>(`/user/remove/${id}`),
 };
@@ -70,77 +121,61 @@ export const userApi = {
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export const appApi = {
-  /** POST /app/create */
   create: (data: AppAddRequest) =>
     request.post<any, BaseResponse<number>>('/app/create', data),
 
-  /** GET /app/chat/gen/code SSE URL */
-  chatToGenAppUrl: (params: { appId: number; msg: string; agent?: boolean }) => {
-    const msg = params.msg.trim();
-    if (!msg) {
-      throw new Error('Message cannot be empty');
+  chatToGenCode: (params: { appId: number; msg: string; files?: File[]; signal?: AbortSignal }) => {
+    const formData = new FormData();
+    formData.append('appId', String(params.appId));
+    formData.append('msg', params.msg);
+    formData.append('agent', 'true');
+    if (params.files) {
+      params.files.forEach((f) => formData.append('file', f));
     }
-
-    const searchParams = new URLSearchParams({
-      appId: String(params.appId),
-      msg,
-      agent: String(params.agent ?? false),
+    return fetch('/api/app/chat/gen/code', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+      signal: params.signal,
     });
-
-    return `/api/app/chat/gen/code?${searchParams.toString()}`;
   },
 
-  /** POST /app/update — owner only; name/cover/priority */
   update: (data: AppUpdateRequest) =>
     request.post<any, BaseResponse<boolean>>('/app/update', data),
 
-  /** POST /app/delete */
   delete: (id: number) =>
     request.post<any, BaseResponse<boolean>>('/app/delete', { id }),
 
-  /** GET /app/get/{id} — public */
   getDetail: (id: number) =>
     request.get<any, BaseResponse<AppDetailVO>>(`/app/get/${id}`),
 
-  /** GET /app/list/page — login required, owner's apps */
   getMyList: (params: AppQueryRequest) =>
     request.get<any, BaseResponse<Page<AppVO>>>('/app/list/page', { params }),
 
-  /** GET /app/star/page — public, priority != null */
   getStarList: (params: { pageNum: number; pageSize: number; appName?: string }) =>
     request.get<any, BaseResponse<Page<AppVO>>>('/app/star/page', { params }),
 
-  /** POST /app/deploy */
   deploy: (appId: number) =>
     request.post<any, BaseResponse<string>>('/app/deploy', { appId }),
 
-  /** GET /app/downLoad?appId= — opens browser download */
   download: (appId: number) =>
     window.open(`/api/app/downLoad?appId=${appId}`),
 
-  /** GET /app/files/{appId} */
   getFileTree: (appId: number) =>
     request.get<any, BaseResponse<FileTreeNode>>(`/app/files/${appId}`),
 
-  /** GET /app/file/{appId}?path= */
   getFileContent: (appId: number, path: string) =>
     request.get<any, BaseResponse<string>>(`/app/file/${appId}`, { params: { path } }),
 
-  // ── Admin only ──────────────────────────────────────────────────────────
-
-  /** POST /app/admin/update */
   adminUpdate: (data: AppUpdateRequest) =>
     request.post<any, BaseResponse<boolean>>('/app/admin/update', data),
 
-  /** POST /app/admin/delete/{id} */
   adminDelete: (id: number) =>
     request.post<any, BaseResponse<boolean>>(`/app/admin/delete/${id}`),
 
-  /** GET /app/admin/list — filterable, supports userId */
   adminGetList: (params: AppAdminQueryRequest) =>
     request.get<any, BaseResponse<Page<AppVO>>>('/app/admin/list', { params }),
 
-  /** GET /app/admin/get/{id} */
   adminGetDetail: (id: number) =>
     request.get<any, BaseResponse<AppDetailVO>>(`/app/admin/get/${id}`),
 };
@@ -148,23 +183,12 @@ export const appApi = {
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
 export const chatApi = {
-  /**
-   * GET /chatHistory/list/app
-   * Use sortField=createTime&sortOrder=ascend for chronological order.
-   * Use createTimeBefore for cursor-based older-page loading.
-   */
   getHistory: (params: ChatHistoryQueryRequest) =>
     request.get<any, BaseResponse<Page<ChatHistoryVO>>>('/chatHistory/list/app', { params }),
 
-  /** GET /chatHistory/admin/list — admin, supports userId filter */
   adminGetHistory: (params: ChatHistoryQueryRequest & { userId?: number }) =>
     request.get<any, BaseResponse<Page<ChatHistoryVO>>>('/chatHistory/admin/list', { params }),
 
-  /**
-   * POST /app/agent/approve
-   * Call when user responds to an approval_request SSE event.
-   * Returns true if approvalId exists and hasn't timed out (300 s).
-   */
   approveAgent: (data: AgentApprovalRequest) =>
     request.post<any, BaseResponse<boolean>>('/app/agent/approve', data),
 };
